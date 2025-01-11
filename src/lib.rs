@@ -250,7 +250,7 @@ macro_rules! hasher_to_fcn {
     ($(#[$attr:meta])* $name:ident, $hasher:ident) => {
         $(#[$attr])*
         #[inline]
-        pub fn $name(bytes: &[u8]) -> u64 {
+        pub const fn $name(bytes: &[u8]) -> u64 {
             let mut hasher = $hasher::default();
             hasher.write(bytes);
             hasher.finish()

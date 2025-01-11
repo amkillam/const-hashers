@@ -3,10 +3,7 @@
 //! Quoted comments are from http://burtleburtle.net/bob/c/SpookyV2.h or
 //! http://burtleburtle.net/bob/c/SpookyV2.cpp
 
-use std::hash::Hasher;
-use std::mem;
-use std::num::Wrapping;
-use std::ptr;
+use core::{hash::Hasher, mem, ptr};
 
 /// number of uint64's in internal state
 const SC_NUM_VARS: usize = 12;
@@ -20,16 +17,6 @@ const SC_BUF_SIZE: usize = 2 * SC_BLOCK_SIZE; // 192
 /// >  * is a not-very-regular mix of 1's and 0's
 /// >  * does not need any other special mathematical properties
 const SC_CONST: u64 = 0xdeadbeefdeadbeefu64;
-
-#[inline]
-fn offset_to_align<T>(ptr: *const T, align: usize) -> usize {
-    align - (ptr as usize & (align - 1))
-}
-
-#[inline]
-fn rot64(x: Wrapping<u64>, k: usize) -> Wrapping<u64> {
-    x << k | x >> (64 - k)
-}
 
 /// > This is used if the input is 96 bytes long or longer.
 /// >
@@ -45,8 +32,8 @@ fn rot64(x: Wrapping<u64>, k: usize) -> Wrapping<u64> {
 ///
 /// data indices: 0..11
 /// state indices: 0..11
-#[inline]
-fn mix(data: &[Wrapping<u64>], state: &mut [Wrapping<u64>; 12]) {
+#[inline(always)]
+const fn mix(data: &[Wrapping<u64>], state: &mut [Wrapping<u64>; 12]) {
     debug_assert!(data.len() >= 12);
     state[0] += data[0];
     state[2] ^= state[10];

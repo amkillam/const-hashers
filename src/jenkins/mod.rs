@@ -28,29 +28,43 @@ pub mod spooky_hash;
 /// > implemented it to fill a set of requirements posed by Colin
 /// > Plumb. Colin ended up using an even simpler (and weaker) hash
 /// > that was sufficient for his purpose.
-pub struct OAATHasher(Wrapping<u64>);
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+pub struct OAATHasher(pub u64);
 
-impl Hasher for OAATHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
+impl OOATHasher {
+    #[inline(always)]
+    pub const fn finish(&self) -> u64 {
         let mut hash = self.0;
-        hash += hash << 3;
-        hash ^= hash >> 11;
-        hash += hash << 15;
+        hash =  hash.wrapping_add(hash.wrapping_shl(3));
+        hash ^= hash.wrapping_shr(11);
+        hash = hash.wrapping_add(hash.wrapping_shl(15));
         hash.0
     }
 
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            self.0 += Wrapping(*byte as u64);
-            self.0 += self.0 << 10;
-            self.0 ^= self.0 >> 6;
+    #[inline(always)]
+    pub const fn write(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
+            self.0 = self.0.wrapping_add(bytes[i] as u64);
+            self.0 = self.0.wrapping_add(self.0.wrapping_shl(10));
+            self.0 ^= self.0.wrapping_shr(6);
+            i += 1;
         }
     }
 }
 
-default_for_constant!(OAATHasher, Wrapping(0));
+impl Hasher for OAATHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.finish()
+    }
+
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        self.write(bytes)
+    }
+}
+
 hasher_to_fcn!(
     /// Provide access to OAATHasher in a single call.
     oaat,
@@ -71,6 +85,11 @@ mod oaat_tests {
         assert_eq!(oaat(b"ab"), 30087418617432);
         assert_eq!(oaat(b"abcdefg"), 3103867595652801641);
     }
+}
+
+#[inline(always)]
+const fn rot64(x: u64, k: usize) -> u64 {
+    x.wrapping_shl(k as u32) | x.wrapping_shr(64 - k as u32)
 }
 
 // ================================
