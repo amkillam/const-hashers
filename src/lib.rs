@@ -79,11 +79,11 @@
 //! use std::collections::HashMap;
 //! use std::hash::BuildHasherDefault;
 //!
-//! use hashers::fx_hash::FxHasher;
+//! use hashers::jenkins::Lookup3Hasher;
 //!
 //! // BuildHasherDefault also implements Default---it's not really interesting.
 //! let mut map =
-//!   HashMap::with_hasher( BuildHasherDefault::<FxHasher>::default() );
+//!   HashMap::with_hasher( BuildHasherDefault::<Lookup3Hasher>::default() );
 //!
 //! map.insert(1, 2);
 //! assert_eq!(map.get(&1), Some(&2));
@@ -125,8 +125,6 @@
 //!   (updated) 1997 Dr. Dobbs article. (jenkins)
 //! - http://burtleburtle.net/bob/hash/spooky.html Jenkin's SpookyHash. (jenkins::spooky_hash)
 //! - Rust's builtin DefaultHasher (SIP 1-3?) (default)
-//! - https://github.com/cbreeden/fxhash A fast, non-secure, hashing algorithm derived from an
-//!   internal hasher in FireFox. (fx_hash)
 //! - http://www.isthe.com/chongo/tech/comp/fnv/ The Fowler/Noll/Vo hash algorithm. (fnv)
 //! - Two "null" hashers: NullHasher returns 0 for all inputs and PassThroughHasher returns the
 //!   last 8 bytes of the data.
@@ -184,8 +182,6 @@
 //! - https://maniagnosis.crsr.net/2014/01/letterpress-cheating-in-rust-09.html
 //! - https://maniagnosis.crsr.net/2016/01/letterpress-cheating-in-rust-16-how.html
 //! And others.
-
-extern crate fxhash;
 
 // ====================================
 // Utilities
@@ -280,50 +276,6 @@ pub mod builtin {
         default,
         DefaultHasher
     );
-}
-
-/// From https://github.com/cbreeden/fxhash
-/// > This hashing algorithm was extracted from the Rustc compiler. This
-/// > is the same hashing algorithm used for some internal operations in
-/// > FireFox. The strength of this algorithm is in hashing 8 bytes at
-/// > a time on 64-bit platforms, where the FNV algorithm works on one
-/// > byte at a time.
-///
-/// This Hasher is imported from the fxhash crate.
-///
-/// Ok, its is a weird one. It chomps the data in 32- or 64-
-/// (or system-specific) bit bites, and is otherwise very, very
-/// simple. Literally, the algorithm is based around hashing a word:
-/// `rotate_left(5).bitxor(word).wrapping_mul($key)`
-///
-/// The complexity must be the `$key` value, right. In 64-bits, it is 0x517cc1b727220a95. What's
-/// that, you ask?
-///
-/// ```sh
-/// $ bc
-/// ibase = 16
-/// 517CC1B727220A95
-/// 5871781006564002453
-/// ...
-/// scale = 15
-/// (2^64) / 5871781006564002453
-/// 3.141592653589793
-/// ```
-///
-/// For those not in the bc inner circle, 0x517cc1b727220a95 = 5871781006564002453, which when
-/// divided into 2^64 is 3.14159, i.e. π.
-///
-/// So, yeah.
-///
-/// The fxhash crate provides both 32- and 64-bit versions, as well as FxHasher, which uses the
-/// system bit-width.
-pub mod fx_hash {
-    pub use fxhash::{FxHasher, FxHasher32, FxHasher64};
-    use std::hash::Hasher;
-
-    hasher_to_fcn!(fxhash, FxHasher);
-    hasher_to_fcn!(fxhash32, FxHasher32);
-    hasher_to_fcn!(fxhash64, FxHasher64);
 }
 
 /// Poor Hashers used for testing purposes.

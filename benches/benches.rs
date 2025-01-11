@@ -10,7 +10,6 @@ use test::{black_box, Bencher};
 
 use hashers::fnv::*;
 use hashers::builtin::*;
-use hashers::fx_hash::*;
 use hashers::jenkins::spooky_hash::*;
 use hashers::jenkins::*;
 use hashers::null::*;
@@ -31,9 +30,6 @@ tiny_bench!(tiny_default, default, DefaultHasher);
 tiny_bench!(tiny_bricolage, bricolage, Bricolage);
 tiny_bench!(tiny_djb2, djb2, DJB2Hasher);
 tiny_bench!(tiny_fnv1a64, fnv1a64, FNV1aHasher64);
-tiny_bench!(tiny_fxhash, fxhash, FxHasher);
-tiny_bench!(tiny_fxhash32, fxhash32, FxHasher32);
-tiny_bench!(tiny_fxhash64, fxhash64, FxHasher64);
 tiny_bench!(tiny_lookup3, lookup3, Lookup3Hasher);
 tiny_bench!(tiny_loselose, loselose, LoseLoseHasher);
 tiny_bench!(tiny_oaat, oaat, OAATHasher);
@@ -64,7 +60,6 @@ w32_bench!(w32_10_oaat, OAATHasher, 10);
 w32_bench!(w32_10_lookup3, Lookup3Hasher, 10);
 w32_bench!(w32_10_passthrough, PassThroughHasher, 10);
 w32_bench!(w32_10_fnv1a64, FNV1aHasher64, 10);
-w32_bench!(w32_10_fxhash, FxHasher, 10);
 w32_bench!(w32_10_spooky, SpookyHasher, 10);
 w32_bench!(w32_10_bricolage, Bricolage, 10);
 
@@ -76,7 +71,6 @@ w32_bench!(w32_100_oaat, OAATHasher, 100);
 w32_bench!(w32_100_lookup3, Lookup3Hasher, 100);
 w32_bench!(w32_100_passthrough, PassThroughHasher, 100);
 w32_bench!(w32_100_fnv1a64, FNV1aHasher64, 100);
-w32_bench!(w32_100_fxhash, FxHasher, 100);
 w32_bench!(w32_100_spooky, SpookyHasher, 100);
 w32_bench!(w32_100_bricolage, Bricolage, 100);
 
@@ -88,7 +82,6 @@ w32_bench!(w32_1000_oaat, OAATHasher, 1000);
 w32_bench!(w32_1000_lookup3, Lookup3Hasher, 1000);
 w32_bench!(w32_1000_passthrough, PassThroughHasher, 1000);
 w32_bench!(w32_1000_fnv1a64, FNV1aHasher64, 1000);
-w32_bench!(w32_1000_fxhash, FxHasher, 1000);
 w32_bench!(w32_1000_spooky, SpookyHasher, 1000);
 w32_bench!(w32_1000_bricolage, Bricolage, 1000);
 
@@ -115,7 +108,6 @@ w64_bench!(w64_10_oaat, OAATHasher, 10);
 w64_bench!(w64_10_lookup3, Lookup3Hasher, 10);
 w64_bench!(w64_10_passthrough, PassThroughHasher, 10);
 w64_bench!(w64_10_fnv1a64, FNV1aHasher64, 10);
-w64_bench!(w64_10_fxhash, FxHasher, 10);
 w64_bench!(w64_10_spooky, SpookyHasher, 10);
 w64_bench!(w64_10_bricolage, Bricolage, 10);
 
@@ -127,7 +119,6 @@ w64_bench!(w64_100_oaat, OAATHasher, 100);
 w64_bench!(w64_100_lookup3, Lookup3Hasher, 100);
 w64_bench!(w64_100_passthrough, PassThroughHasher, 100);
 w64_bench!(w64_100_fnv1a64, FNV1aHasher64, 100);
-w64_bench!(w64_100_fxhash, FxHasher, 100);
 w64_bench!(w64_100_spooky, SpookyHasher, 100);
 w64_bench!(w64_100_bricolage, Bricolage, 100);
 
@@ -139,7 +130,6 @@ w64_bench!(w64_1000_oaat, OAATHasher, 1000);
 w64_bench!(w64_1000_lookup3, Lookup3Hasher, 1000);
 w64_bench!(w64_1000_passthrough, PassThroughHasher, 1000);
 w64_bench!(w64_1000_fnv1a64, FNV1aHasher64, 1000);
-w64_bench!(w64_1000_fxhash, FxHasher, 1000);
 w64_bench!(w64_1000_spooky, SpookyHasher, 1000);
 w64_bench!(w64_1000_bricolage, Bricolage, 1000);
 
@@ -179,7 +169,6 @@ words_bench!(words1000_oaat, OAATHasher, 1000);
 words_bench!(words1000_lookup3, Lookup3Hasher, 1000);
 words_bench!(words1000_passthrough, PassThroughHasher, 1000);
 words_bench!(words1000_fnv1a64, FNV1aHasher64, 1000);
-words_bench!(words1000_fxhash, FxHasher, 1000);
 words_bench!(words1000_spooky, SpookyHasher, 1000);
 words_bench!(words1000_bricolage, Bricolage, 1000);
 
@@ -203,6 +192,5 @@ file_bench!(file_lookup3, lookup3);
 file_bench!(file_passthrough, passthrough);
 file_bench!(file_fnv1a64, fnv1a64);
 file_bench!(file_fnv1a32, fnv1a32);
-file_bench!(file_fxhash, fxhash);
 file_bench!(file_spooky, spooky);
 file_bench!(file_bricolage, bricolage);

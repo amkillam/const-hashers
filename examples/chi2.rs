@@ -54,9 +54,6 @@ fn do_hashes(samples: &[Vec<u8>]) {
     do_print("djb2",      chi2(&samples, oz::djb2,                     7));
     do_print("fnv1a 32",  chi2(&samples, fnv::fnv1a32,                 7));
     do_print("fnv1a 64",  chi2(&samples, fnv::fnv1a64,                 7));
-    do_print("fxhash",    chi2(&samples, fx_hash::fxhash,              7));
-    do_print("fxhash32",  chi2(&samples, fx_hash::fxhash32,            7));
-    do_print("fxhash64",  chi2(&samples, fx_hash::fxhash64,            7));
     do_print("lookup3",   chi2(&samples, jenkins::lookup3,             7));
     do_print("loselose",  chi2(&samples, oz::loselose,                 7));
     do_print("null",      chi2(&samples, null::null,                   7));

@@ -191,6 +191,11 @@ impl core::fmt::Display for Lookup3Hasher {
 
 impl Lookup3Hasher {
     #[inline(always)]
+    pub const fn default() -> Lookup3Hasher {
+        Lookup3Hasher { pc: 0, pb: 0 }
+    }
+
+    #[inline(always)]
     pub const fn new(pc: u32, pb: u32) -> Lookup3Hasher {
         Lookup3Hasher { pc, pb }
     }

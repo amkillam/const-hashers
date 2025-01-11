@@ -8,7 +8,7 @@ couple of statistical tests for hash quality.
 
 ## Disclaimer
 
-**None** of this is *cryptographically secure*. Attempting to use this
+**None** of this is _cryptographically secure_. Attempting to use this
 for cryptographic purposes is not recommended. I am not a cryptographer;
 I don't even play one on TV.
 
@@ -65,10 +65,11 @@ state or return the final value.)
 
 As a result, instead of passing in a Hasher, we have to pass an instance of another trait,
 `std::hash::BuildHash`. Rust's standard library currently has two implementations of that
-trait: 
+trait:
+
 - `std::collections::hash_map::RandomState`, which creates instances of DefaultHasher,
   Rust's implementation of SIP-something using cryptographic keys to prevent denial-of-service
-  attacks. 
+  attacks.
 - `std::hash::BuildHasherDefault`, which can create instances of any Hasher implementation that
   also implements the Default trait.
 
@@ -78,11 +79,11 @@ All of the Hashers in this collection also implement Default.
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
 
-use hashers::fx_hash::FxHasher;
+use hashers::jenkins::Lookup3Hasher;
 
 // BuildHasherDefault also implements Default---it's not really interesting.
 let mut map =
-  HashMap::with_hasher( BuildHasherDefault::<FxHasher>::default() );
+  HashMap::with_hasher( BuildHasherDefault::<Lookup3Hasher>::default() );
 
 map.insert(1, 2);
 assert_eq!(map.get(&1), Some(&2));
@@ -119,13 +120,12 @@ module.
 ## About this crate
 
 This collection of Hashers is based on:
+
 - http://www.cse.yorku.ca/~oz/hash.html Oz's Hash functions. (oz)
 - http://www.burtleburtle.net/bob/hash/doobs.html Bob Jenkins'
   (updated) 1997 Dr. Dobbs article. (jenkins)
 - http://burtleburtle.net/bob/hash/spooky.html Jenkin's SpookyHash. (jenkins::spooky_hash)
 - Rust's builtin DefaultHasher (SIP 1-3?) (default)
-- https://github.com/cbreeden/fxhash A fast, non-secure, hashing algorithm derived from an
-  internal hasher in FireFox. (fx_hash)
 - http://www.isthe.com/chongo/tech/comp/fnv/ The Fowler/Noll/Vo hash algorithm. (fnv)
 - https://hbfs.wordpress.com/2015/11/17/and-a-good-one-hash-functions-part vi/
   Steven Pigeon's Bricolage hash algorithm.
@@ -154,6 +154,7 @@ samples and for each Hasher. Numbers closer to 0 are better, and between 3.0 and
 apparently "ok." Maybe.
 
 The samples are:
+
 - 1000 uniformly distributed 6-byte binary values.
 - 1000 uniformly distributed 6-byte alphanumeric (ASCII) values.
 - 1000 generated identifiers of the form 'annnnn'.
@@ -181,7 +182,8 @@ This program finds the number of words that can be made from the letters
 reports the time taken by each hasher as well as a comparison with DefaultHasher.
 
 For more information, check out my ancient series of blog posts:
+
 - https://maniagnosis.crsr.net/2013/02/creating-letterpress-cheating-program.html
 - https://maniagnosis.crsr.net/2014/01/letterpress-cheating-in-rust-09.html
 - https://maniagnosis.crsr.net/2016/01/letterpress-cheating-in-rust-16-how.html
-And others.
+  And others.
