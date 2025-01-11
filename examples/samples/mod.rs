@@ -1,4 +1,3 @@
-use rand;
 use rand::distributions::{Alphanumeric, Distribution, Uniform};
 
 // Helper to create a uniform distribution
