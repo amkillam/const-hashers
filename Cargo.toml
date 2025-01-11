@@ -1,20 +1,23 @@
 [package]
-name = "hashers"
-version = "1.0.1"
-authors = ["Tommy M. McGuire <mcguire@crsr.net>"]
+name = "const-hashers"
+version = "2.0.0"
+authors = [
+  "Tommy M. McGuire <mcguire@crsr.net>",
+  "Adam Killam <adammkillam@gmail.com>",
+]
 description = "A collection of non-cryptographic hashing algorithms for Rust"
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/tmmcguire/hashers"
-repository = "https://github.com/tmmcguire/hashers"
+homepage = "https://github.com/amkillam/const-hashers"
+repository = "https://github.com/amkillam/const-hashers"
 readme = "README.md"
-keywords = [ "hash", "Hasher" ]
-categories = [ "algorithms" ]
+keywords = ["hash", "Hasher"]
+categories = ["algorithms"]
 
 [dependencies]
 fxhash = "0.2.1"
 
 [dev-dependencies]
-rand = "0.5.4"
+rand = "0.8.5"
 
 [profile.bench]
 opt-level = 3
