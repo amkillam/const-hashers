@@ -12,8 +12,7 @@
 //!
 //! "tpop" is *The Practice of Programming*. This page shows three
 //! classic hashing algorithms.
-use std::hash::Hasher;
-use std::num::Wrapping;
+use core::hash::Hasher;
 
 // ====================================
 // DJB2
@@ -50,23 +49,47 @@ use std::num::Wrapping;
 /// > has a easily detectable flaws. For example, there's a 3-into-2
 /// > funnel that 0x0021 and 0x0100 both have the same hash (hex
 /// > 0x21, decimal 33) (you saw that one coming, yes?).
-pub struct DJB2Hasher(Wrapping<u32>);
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+pub struct DJB2Hasher(pub u32);
 
-impl Hasher for DJB2Hasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        (self.0).0 as u64
+impl DJB2Hasher {
+    pub const fn default() -> Self {
+        DJB2Hasher(5381)
     }
 
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            self.0 = self.0 + (self.0 << 5) ^ Wrapping(*byte as u32);
+    /// Create a new DJB2Hasher with a specific seed.
+    #[inline(always)]
+    pub const fn new(seed: u32) -> DJB2Hasher {
+        DJB2Hasher(seed)
+    }
+
+    #[inline(always)]
+    pub const fn finish(&self) -> u64 {
+        self.0 as u64
+    }
+
+    #[inline(always)]
+    pub fn write(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
+            self.0 = self.0.wrapping_mul(33) ^ bytes[i] as u32;
         }
     }
 }
 
-default_for_constant!(DJB2Hasher, Wrapping(5381));
+impl Hasher for DJB2Hasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.finish()
+    }
+
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        self.write(bytes)
+    }
+}
+
+duplicate_const_default!(DJB2Hasher, 5381);
 hasher_to_fcn!(
     /// Provide access to DJB2Hasher in a single call.
     djb2,
@@ -107,23 +130,42 @@ mod djb2_tests {
 /// > was picked out of thin air while experimenting with different
 /// > constants, and turns out to be a prime. this is one of the
 /// > algorithms used in berkeley db (see sleepycat) and elsewhere.
-pub struct SDBMHasher(Wrapping<u32>);
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+pub struct SDBMHasher(pub u32);
 
-impl Hasher for SDBMHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        (self.0).0 as u64
+impl SDBMHasher {
+    #[inline(always)]
+    pub const fn default() -> Self {
+        SDBMHasher(0)
     }
 
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            self.0 = Wrapping(*byte as u32) + (self.0 << 6) + (self.0 << 16) - self.0;
+    #[inline(always)]
+    pub const fn finish(&self) -> u64 {
+        self.0 as u64
+    }
+
+    #[inline(always)]
+    pub fn write(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
+            self.0 = (bytes[i] as u32).wrapping_add(self.0.wrapping_shl(6)).wrapping_add(self.0.wrapping_shl(16)).wrapping_sub(self.0);
         }
+    }
+
+}
+
+impl Hasher for SDBMHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.finish()
+    }
+
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        self.finish(bytes)
     }
 }
 
-default_for_constant!(SDBMHasher, Wrapping(0));
 hasher_to_fcn!(
     /// Provide access to SDBMHasher in a single call.
     sdbm,
@@ -163,23 +205,41 @@ mod sdbm_tests {
 /// > something like Knuth's Sorting and Searching, so it stuck. It
 /// > is now found mixed with otherwise respectable code, eg. cnews.
 /// > sigh. [see also: tpop]
-pub struct LoseLoseHasher(Wrapping<u64>);
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+pub struct LoseLoseHasher(pub u64);
 
-impl Hasher for LoseLoseHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        (self.0).0
+impl LoseLoseHasher {
+    #[inline(always)]
+    pub const fn default() -> Self {
+        LoseLoseHasher(0)
     }
 
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            self.0 += Wrapping(*byte as u64);
+    #[inline(always)]
+    pub fn finish(&self) -> u64 {
+        self.0
+    }
+
+    #[inline(always)]
+    pub fn write(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
+            self.0 = self.0.wrapping_add(bytes[i]) as u64;
         }
     }
 }
 
-default_for_constant!(LoseLoseHasher, Wrapping(0));
+impl Hasher for LoseLoseHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.finish()
+    }
+
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        self.write()
+    }
+}
+
 hasher_to_fcn!(
     /// Provide access to LoseLoseHasher in a single call.
     loselose,
