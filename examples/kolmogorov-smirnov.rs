@@ -1,6 +1,3 @@
-extern crate hashers;
-extern crate rand;
-
 mod samples;
 
 // See
@@ -48,60 +45,71 @@ fn print_ks(sample: &str, hash: &str, d: f64) {
 }
 
 fn run_sample(name: &str, samples: &[Vec<u8>]) {
+    #[cfg(feature = "pigeon")]
     print_ks(
         name,
         "bricolage",
-        ks(&do_hashes(hashers::pigeon::bricolage, samples)),
+        ks(&do_hashes(const_hashers::pigeon::bricolage, samples)),
     );
+    #[cfg(feature = "builtin")]
     print_ks(
         name,
         "default  ",
-        ks(&do_hashes(hashers::builtin::default, samples)),
+        ks(&do_hashes(const_hashers::builtin::default, samples)),
     );
+    #[cfg(feature = "oz")]
     print_ks(
         name,
         "djb2     ",
-        ks(&do_hashes(hashers::oz::djb2, samples)),
+        ks(&do_hashes(const_hashers::oz::djb2, samples)),
     );
+    #[cfg(feature = "fnv")]
     print_ks(
         name,
         "fnv1a 64 ",
-        ks(&do_hashes(hashers::fnv::fnv1a64, samples)),
+        ks(&do_hashes(const_hashers::fnv::fnv1a64, samples)),
     );
+    #[cfg(feature = "fnv")]
     print_ks(
         name,
         "lookup3  ",
-        ks(&do_hashes(hashers::jenkins::lookup3, samples)),
+        ks(&do_hashes(const_hashers::jenkins::lookup3, samples)),
     );
+    #[cfg(feature = "oz")]
     print_ks(
         name,
         "loselose ",
-        ks(&do_hashes(hashers::oz::loselose, samples)),
+        ks(&do_hashes(const_hashers::oz::loselose, samples)),
     );
+    #[cfg(feature = "null")]
     print_ks(
         name,
         "null     ",
-        ks(&do_hashes(hashers::null::null, samples)),
+        ks(&do_hashes(const_hashers::null::null, samples)),
     );
+    #[cfg(feature = "jenkins")]
     print_ks(
         name,
         "oaat     ",
-        ks(&do_hashes(hashers::jenkins::oaat, samples)),
+        ks(&do_hashes(const_hashers::jenkins::oaat, samples)),
     );
+    #[cfg(feature = "null")]
     print_ks(
         name,
         "passthru ",
-        ks(&do_hashes(hashers::null::passthrough, samples)),
+        ks(&do_hashes(const_hashers::null::passthrough, samples)),
     );
+    #[cfg(feature = "oz")]
     print_ks(
         name,
         "sdbm     ",
-        ks(&do_hashes(hashers::oz::sdbm, samples)),
+        ks(&do_hashes(const_hashers::oz::sdbm, samples)),
     );
+    #[cfg(feature = "jenkins")]
     print_ks(
         name,
         "spooky   ",
-        ks(&do_hashes(hashers::jenkins::spooky_hash::spooky, samples)),
+        ks(&do_hashes(const_hashers::jenkins::spooky_hash::spooky, samples)),
     );
 }
 

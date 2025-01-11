@@ -1,11 +1,5 @@
 // The chi^2 test for Hashers.
 
-extern crate rand;
-
-extern crate hashers;
-
-use hashers::{builtin, fnv, fx_hash, jenkins, null, oz, pigeon};
-
 mod samples;
 
 // This function is taken (loosely) from
@@ -49,18 +43,30 @@ fn do_print(name: &str, chi2: f64) {
 }
 
 fn do_hashes(samples: &[Vec<u8>]) {
-    do_print("bricolage", chi2(&samples, pigeon::bricolage, 7));
-    do_print("default", chi2(&samples, builtin::default, 7));
-    do_print("djb2", chi2(&samples, oz::djb2, 7));
-    do_print("fnv1a 32", chi2(&samples, fnv::fnv1a32, 7));
-    do_print("fnv1a 64", chi2(&samples, fnv::fnv1a64, 7));
-    do_print("lookup3", chi2(&samples, jenkins::lookup3, 7));
-    do_print("loselose", chi2(&samples, oz::loselose, 7));
-    do_print("null", chi2(&samples, null::null, 7));
-    do_print("OAAT", chi2(&samples, jenkins::oaat, 7));
-    do_print("Pass", chi2(&samples, null::passthrough, 7));
-    do_print("sdbm", chi2(&samples, oz::sdbm, 7));
-    do_print("spooky", chi2(&samples, jenkins::spooky_hash::spooky, 7));
+    #[cfg(feature = "pigeon")]
+    do_print("bricolage", chi2(&samples, const_hashers::pigeon::bricolage, 7));
+    #[cfg(feature = "builtin")]
+    do_print("default", chi2(&samples, const_hashers::builtin::default, 7));
+    #[cfg(feature = "oz")]
+    do_print("djb2", chi2(&samples, const_hashers::oz::djb2, 7));
+    #[cfg(feature = "fnv")]
+    do_print("fnv1a 32", chi2(&samples, const_hashers::fnv::fnv1a32, 7));
+    #[cfg(feature = "fnv")]
+    do_print("fnv1a 64", chi2(&samples, const_hashers::fnv::fnv1a64, 7));
+    #[cfg(feature = "jenkins")]
+    do_print("lookup3", chi2(&samples, const_hashers::jenkins::lookup3, 7));
+    #[cfg(feature = "oz")]
+    do_print("loselose", chi2(&samples, const_hashers::oz::loselose, 7));
+    #[cfg(feature = "null")]
+    do_print("null", chi2(&samples, const_hashers::null::null, 7));
+    #[cfg(feature = "jenkins")]
+    do_print("OAAT", chi2(&samples, const_hashers::jenkins::oaat, 7));
+    #[cfg(feature = "null")]
+    do_print("Pass", chi2(&samples, const_hashers::null::passthrough, 7));
+    #[cfg(feature = "oz")]
+    do_print("sdbm", chi2(&samples, const_hashers::oz::sdbm, 7));
+    #[cfg(feature = "jenkins")]
+    do_print("spooky", chi2(&samples, const_hashers::jenkins::spooky_hash::spooky, 7));
 }
 
 fn main() {

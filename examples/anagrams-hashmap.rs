@@ -1,14 +1,10 @@
 // **WARNING:** This program must be compiled in --release mode, with optimizations, or it will
 // take a very, very long time.
 
-extern crate hashers;
-
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
+use std::time;
 use std::io::{BufRead, BufReader};
-use std::{fs, time};
-
-use hashers::{builtin, fnv, fx_hash, jenkins, oz, pigeon};
 
 pub mod combinations;
 
@@ -33,10 +29,9 @@ type StringSet<BH> = HashSet<String, BH>;
 
 /// Read the anagram dictionary into a HashMap.
 fn load_dictionary<H: Default + Hasher>() -> Dictionary<BuildHasherDefault<H>> {
-    let file = match fs::File::open("./data/anadict.txt") {
-        Ok(f) => f,
-        Err(e) => panic!(e),
-    };
+    let file = std::fs::File::open("./data/anadict.txt").unwrap_or_else(|e| {
+        panic!("Cannot open anadict.txt. Error: {:?}", e);
+    });
     let buffered_file = BufReader::new(file);
     let mut map = HashMap::default();
     for line in buffered_file.lines() {
@@ -102,13 +97,25 @@ fn time<H: Default + Hasher>(title: &str, baseline: f64) -> f64 {
 }
 
 fn main() {
-    let baseline = time::<builtin::DefaultHasher>("default", 0.0);
-    time::<oz::DJB2Hasher>("djb2", baseline);
-    time::<oz::SDBMHasher>("sdbm", baseline);
-    time::<jenkins::OAATHasher>("oaat", baseline);
-    time::<jenkins::Lookup3Hasher>("lookup3", baseline);
-    time::<fnv::FNV1aHasher32>("fnv-1a 32", baseline);
-    time::<fnv::FNV1aHasher64>("fnv-1a 64", baseline);
-    time::<jenkins::spooky_hash::SpookyHasher>("spooky", baseline);
-    time::<pigeon::Bricolage>("bricolage", baseline);
+    let baseline = time::<std::collections::hash_map::DefaultHasher>("default", 0.0);
+    
+    #[cfg(feature = "oz")]
+    {
+       time::<const_hashers::oz::DJB2Hasher>("djb2", baseline);
+       time::<const_hashers::oz::SDBMHasher>("sdbm", baseline);
+    }
+    #[cfg(feature = "jenkins")]
+    {
+       time::<const_hashers::jenkins::OAATHasher>("oaat", baseline);
+       time::<const_hashers::jenkins::Lookup3Hasher>("lookup3", baseline);
+       time::<const_hashers::jenkins::spooky_hash::SpookyHasher>("spooky", baseline);
+
+    }
+    #[cfg(feature = "fnv")]
+    {
+       time::<const_hashers::fnv::FNV1aHasher32>("fnv-1a 32", baseline);
+       time::<const_hashers::fnv::FNV1aHasher64>("fnv-1a 64", baseline);
+    }
+    #[cfg(feature = "pigeon")]
+       time::<const_hashers::pigeon::Bricolage>("bricolage", baseline);
 }

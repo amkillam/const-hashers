@@ -7,9 +7,9 @@ pub fn uniform() -> Uniform<u8> {
 }
 
 // Generate n samples of size s bytes from distribution dst.
-pub fn random_samples<D: Distribution<u8>>(dist: &mut D, n: usize, s: usize) -> Vec<Vec<u8>> {
+pub fn random_samples<D: Distribution<u8> + Copy>(dist: &mut D, n: usize, s: usize) -> Vec<Vec<u8>> {
     (0..n)
-        .map(|_| dist.sample_iter(&mut rand::thread_rng()).take(s).collect())
+        .map(move |_| dist.sample_iter(&mut rand::thread_rng()).take(s).collect())
         .collect()
 }
 
