@@ -1,5 +1,5 @@
-extern crate rand;
 extern crate hashers;
+extern crate rand;
 
 mod samples;
 
@@ -48,21 +48,68 @@ fn print_ks(sample: &str, hash: &str, d: f64) {
 }
 
 fn run_sample(name: &str, samples: &[Vec<u8>]) {
-    print_ks(name, "bricolage", ks(&do_hashes(hashers::pigeon::bricolage, samples)));
-    print_ks(name, "default  ", ks(&do_hashes(hashers::builtin::default, samples)));
-    print_ks(name, "djb2     ", ks(&do_hashes(hashers::oz::djb2, samples)));
-    print_ks(name, "fnv1a 64 ", ks(&do_hashes(hashers::fnv::fnv1a64, samples)));
-    print_ks(name, "lookup3  ", ks(&do_hashes(hashers::jenkins::lookup3, samples)));
-    print_ks(name, "loselose ", ks(&do_hashes(hashers::oz::loselose, samples)));
-    print_ks(name, "null     ", ks(&do_hashes(hashers::null::null, samples)));
-    print_ks(name, "oaat     ", ks(&do_hashes(hashers::jenkins::oaat, samples)));
-    print_ks(name, "passthru ", ks(&do_hashes(hashers::null::passthrough, samples)));
-    print_ks(name, "sdbm     ", ks(&do_hashes(hashers::oz::sdbm, samples)));
-    print_ks(name, "spooky   ", ks(&do_hashes(hashers::jenkins::spooky_hash::spooky, samples)));
+    print_ks(
+        name,
+        "bricolage",
+        ks(&do_hashes(hashers::pigeon::bricolage, samples)),
+    );
+    print_ks(
+        name,
+        "default  ",
+        ks(&do_hashes(hashers::builtin::default, samples)),
+    );
+    print_ks(
+        name,
+        "djb2     ",
+        ks(&do_hashes(hashers::oz::djb2, samples)),
+    );
+    print_ks(
+        name,
+        "fnv1a 64 ",
+        ks(&do_hashes(hashers::fnv::fnv1a64, samples)),
+    );
+    print_ks(
+        name,
+        "lookup3  ",
+        ks(&do_hashes(hashers::jenkins::lookup3, samples)),
+    );
+    print_ks(
+        name,
+        "loselose ",
+        ks(&do_hashes(hashers::oz::loselose, samples)),
+    );
+    print_ks(
+        name,
+        "null     ",
+        ks(&do_hashes(hashers::null::null, samples)),
+    );
+    print_ks(
+        name,
+        "oaat     ",
+        ks(&do_hashes(hashers::jenkins::oaat, samples)),
+    );
+    print_ks(
+        name,
+        "passthru ",
+        ks(&do_hashes(hashers::null::passthrough, samples)),
+    );
+    print_ks(
+        name,
+        "sdbm     ",
+        ks(&do_hashes(hashers::oz::sdbm, samples)),
+    );
+    print_ks(
+        name,
+        "spooky   ",
+        ks(&do_hashes(hashers::jenkins::spooky_hash::spooky, samples)),
+    );
 }
 
 fn main() {
-    run_sample("random      ", &samples::random_samples(&mut samples::uniform(), 1000, 6));
+    run_sample(
+        "random      ",
+        &samples::random_samples(&mut samples::uniform(), 1000, 6),
+    );
     run_sample("alphanumeric", &samples::alphanumeric_samples(10000, 6));
     run_sample("generated   ", &samples::generated_samples(10000, 6));
     run_sample("word_samples", &samples::word_samples());

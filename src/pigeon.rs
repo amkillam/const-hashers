@@ -63,51 +63,64 @@
 //! it were modified to correctly handle a larger block, it might actually
 //! be competitive.
 
-use std::hash::Hasher;
-
-#[inline]
-fn cut_deck(x: u64) -> u64 {
-    (x.wrapping_shl(32) | x.wrapping_shr(32))
+#[inline(always)]
+const fn cut_deck(x: u64) -> u64 {
+    x.wrapping_shl(32) | x.wrapping_shr(32)
 }
 
 #[inline]
-fn perfect_shuffle_32(mut x: u32) -> u32 {
-    x = (x & 0xff0000ffu32) | (x & 0x00ff0000u32).wrapping_shr(8) | (x & 0x0000ff00u32).wrapping_shl(8);
-    x = (x & 0xf00ff00fu32) | (x & 0x0f000f00u32).wrapping_shr(4) | (x & 0x00f000f0u32).wrapping_shl(4);
-    x = (x & 0xc3c3c3c3u32) | (x & 0x30303030u32).wrapping_shr(2) | (x & 0x0c0c0c0cu32).wrapping_shl(2);
-    x = (x & 0x99999999u32) | (x & 0x44444444u32).wrapping_shr(1) | (x & 0x22222222u32).wrapping_shl(1);
+const fn perfect_shuffle_32(mut x: u32) -> u32 {
+    x = (x & 0xff0000ffu32)
+        | (x & 0x00ff0000u32).wrapping_shr(8)
+        | (x & 0x0000ff00u32).wrapping_shl(8);
+    x = (x & 0xf00ff00fu32)
+        | (x & 0x0f000f00u32).wrapping_shr(4)
+        | (x & 0x00f000f0u32).wrapping_shl(4);
+    x = (x & 0xc3c3c3c3u32)
+        | (x & 0x30303030u32).wrapping_shr(2)
+        | (x & 0x0c0c0c0cu32).wrapping_shl(2);
+    x = (x & 0x99999999u32)
+        | (x & 0x44444444u32).wrapping_shr(1)
+        | (x & 0x22222222u32).wrapping_shl(1);
     x
 }
 
 #[inline]
-fn perfect_shuffle_64(mut x: u64) -> u64 {
+const fn perfect_shuffle_64(mut x: u64) -> u64 {
     x = cut_deck(x);
     let xh = perfect_shuffle_32(x.wrapping_shr(32) as u32) as u64;
     let xl = perfect_shuffle_32(x as u32) as u64;
     xh.wrapping_shl(32) | xl
 }
 
-pub struct Bricolage(u64);
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
+pub struct Bricolage(pub u64);
 
-default_for_constant!(Bricolage, 0);
-
-const MAGIC: u64 = 173773926194192273u64;
-
-impl Hasher for Bricolage {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0
+impl Bricolage {
+    #[inline(always)]
+    pub const fn default() -> Self {
+        Bricolage(0)
     }
 
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            let shuffled = perfect_shuffle_64((*byte as u64).wrapping_mul(MAGIC));
+    #[inline(always)]
+    pub const fn write(&mut self, bytes: &[u8]) {
+        let mut i = 0;
+        while i < bytes.len() {
+            let shuffled = perfect_shuffle_64((bytes[i] as u64).wrapping_mul(MAGIC));
             self.0 = cut_deck(self.0.wrapping_add(shuffled));
+            i += 1;
         }
+    }
+
+    #[inline(always)]
+    pub const fn finish(&self) -> u64 {
+        self.0
     }
 }
 
+const MAGIC: u64 = 173773926194192273u64;
+
+duplicate_const_traits!(Bricolage);
 hasher_to_fcn!(
     /// Provide access to Bricolage in a single call.
     bricolage,
@@ -122,10 +135,9 @@ mod bricolage_tests {
 
     #[test]
     fn basic() {
-        assert_eq!(bricolage(b""),   0);
-        assert_eq!(bricolage(b"a"),  17926483712435944715);
-        assert_eq!(bricolage(b"b"),  12457347154332739726);
+        assert_eq!(bricolage(b""), 0);
+        assert_eq!(bricolage(b"a"), 17926483712435944715);
+        assert_eq!(bricolage(b"b"), 12457347154332739726);
         assert_eq!(bricolage(b"ab"), 16461606921607156355);
     }
 }
-

@@ -8,13 +8,13 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use test::{black_box, Bencher};
 
-use hashers::fnv::*;
 use hashers::builtin::*;
+use hashers::fnv::*;
 use hashers::jenkins::spooky_hash::*;
 use hashers::jenkins::*;
 use hashers::null::*;
-use hashers::pigeon::*;
 use hashers::oz::*;
+use hashers::pigeon::*;
 
 macro_rules! tiny_bench {
     ($name:ident, $fcn:ident, $hasher:ident) => {

@@ -12,7 +12,6 @@
 //!
 //! "tpop" is *The Practice of Programming*. This page shows three
 //! classic hashing algorithms.
-use core::hash::Hasher;
 
 // ====================================
 // DJB2
@@ -49,7 +48,7 @@ use core::hash::Hasher;
 /// > has a easily detectable flaws. For example, there's a 3-into-2
 /// > funnel that 0x0021 and 0x0100 both have the same hash (hex
 /// > 0x21, decimal 33) (you saw that one coming, yes?).
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct DJB2Hasher(pub u32);
 
 impl DJB2Hasher {
@@ -69,27 +68,16 @@ impl DJB2Hasher {
     }
 
     #[inline(always)]
-    pub fn write(&mut self, bytes: &[u8]) {
+    pub const fn write(&mut self, bytes: &[u8]) {
         let mut i = 0;
         while i < bytes.len() {
             self.0 = self.0.wrapping_mul(33) ^ bytes[i] as u32;
+            i += 1;
         }
     }
 }
 
-impl Hasher for DJB2Hasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.finish()
-    }
-
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        self.write(bytes)
-    }
-}
-
-duplicate_const_default!(DJB2Hasher, 5381);
+duplicate_const_traits!(DJB2Hasher);
 hasher_to_fcn!(
     /// Provide access to DJB2Hasher in a single call.
     djb2,
@@ -130,7 +118,7 @@ mod djb2_tests {
 /// > was picked out of thin air while experimenting with different
 /// > constants, and turns out to be a prime. this is one of the
 /// > algorithms used in berkeley db (see sleepycat) and elsewhere.
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct SDBMHasher(pub u32);
 
 impl SDBMHasher {
@@ -145,26 +133,19 @@ impl SDBMHasher {
     }
 
     #[inline(always)]
-    pub fn write(&mut self, bytes: &[u8]) {
+    pub const fn write(&mut self, bytes: &[u8]) {
         let mut i = 0;
         while i < bytes.len() {
-            self.0 = (bytes[i] as u32).wrapping_add(self.0.wrapping_shl(6)).wrapping_add(self.0.wrapping_shl(16)).wrapping_sub(self.0);
+            self.0 = (bytes[i] as u32)
+                .wrapping_add(self.0.wrapping_shl(6))
+                .wrapping_add(self.0.wrapping_shl(16))
+                .wrapping_sub(self.0);
+            i += 1;
         }
     }
-
 }
 
-impl Hasher for SDBMHasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.finish()
-    }
-
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        self.finish(bytes)
-    }
-}
+duplicate_const_traits!(SDBMHasher);
 
 hasher_to_fcn!(
     /// Provide access to SDBMHasher in a single call.
@@ -205,7 +186,7 @@ mod sdbm_tests {
 /// > something like Knuth's Sorting and Searching, so it stuck. It
 /// > is now found mixed with otherwise respectable code, eg. cnews.
 /// > sigh. [see also: tpop]
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct LoseLoseHasher(pub u64);
 
 impl LoseLoseHasher {
@@ -215,30 +196,21 @@ impl LoseLoseHasher {
     }
 
     #[inline(always)]
-    pub fn finish(&self) -> u64 {
+    pub const fn finish(&self) -> u64 {
         self.0
     }
 
     #[inline(always)]
-    pub fn write(&mut self, bytes: &[u8]) {
+    pub const fn write(&mut self, bytes: &[u8]) {
         let mut i = 0;
         while i < bytes.len() {
-            self.0 = self.0.wrapping_add(bytes[i]) as u64;
+            self.0 = self.0.wrapping_add(bytes[i] as u64);
+            i +=1;
         }
     }
 }
 
-impl Hasher for LoseLoseHasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.finish()
-    }
-
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        self.write()
-    }
-}
+duplicate_const_traits!(LoseLoseHasher);
 
 hasher_to_fcn!(
     /// Provide access to LoseLoseHasher in a single call.

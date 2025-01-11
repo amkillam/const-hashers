@@ -35,7 +35,7 @@
 //! pub trait Hasher {
 //!     fn finish(&self) -> u64;
 //!     fn write(&mut self, bytes: &[u8]);
-//! 
+//!
 //!     fn write_u8(&mut self, i: u8) { ... }
 //!     fn write_u16(&mut self, i: u16) { ... }
 //!     ...
@@ -66,10 +66,10 @@
 //!
 //! As a result, instead of passing in a Hasher, we have to pass an instance of another trait,
 //! `std::hash::BuildHash`. Rust's standard library currently has two implementations of that
-//! trait: 
+//! trait:
 //! - `std::collections::hash_map::RandomState`, which creates instances of DefaultHasher,
 //!   Rust's implementation of SIP-something using cryptographic keys to prevent denial-of-service
-//!   attacks. 
+//!   attacks.
 //! - `std::hash::BuildHasherDefault`, which can create instances of any Hasher implementation that
 //!   also implements the Default trait.
 //!
@@ -181,6 +181,7 @@
 //! - https://maniagnosis.crsr.net/2013/02/creating-letterpress-cheating-program.html
 //! - https://maniagnosis.crsr.net/2014/01/letterpress-cheating-in-rust-09.html
 //! - https://maniagnosis.crsr.net/2016/01/letterpress-cheating-in-rust-16-how.html
+//!   
 //! And others.
 
 // ====================================
@@ -199,41 +200,40 @@
 macro_rules! load_int_le {
     ($buf:expr, $i:expr, $int_ty:ident) => {{
         unsafe {
-            debug_assert!($i + mem::size_of::<$int_ty>() <= $buf.len());
+            debug_assert!($i + core::mem::size_of::<$int_ty>() <= $buf.len());
             let mut data = 0 as $int_ty;
-            ptr::copy_nonoverlapping(
-                $buf.get_unchecked($i),
+            core::ptr::copy_nonoverlapping(
+                &$buf[$i],
                 &mut data as *mut _ as *mut u8,
-                mem::size_of::<$int_ty>(),
+                core::mem::size_of::<$int_ty>(),
             );
             data.to_le()
         }
     }};
 }
 
-// This is how I might have done it.
-// macro_rules! bytes_to {
-//     ($slice:ident, $offset:expr, $dst_ty:ident) => {
-//         unsafe {
-//             *mem::transmute::<*const u8, &$dst_ty>(
-//                 $slice
-//                     .get_unchecked($offset..($offset + mem::size_of::<$dst_ty>()))
-//                     .as_ptr(),
-//             )
-//         }
-//     };
-// }
+//Wrap the constant-time implementations of the functions defining
+//the `Hasher` and `Default` traits into the standard traits
+macro_rules! duplicate_const_traits {
 
-// Create an implementation of Default for a simple type initialized
-// with a constant value.
-macro_rules! default_for_constant {
-
-    ($(#[$attr:meta])* $name:ident, $default:expr) => {
+    ($(#[$attr:meta])* $name:ident) => {
         $(#[$attr])*
         impl Default for $name {
             #[inline]
             fn default() -> $name {
-                $name($default)
+                $name::default()
+            }
+        }
+
+        impl core::hash::Hasher for $name {
+            #[inline(always)]
+            fn finish(&self) -> u64 {
+                self.finish()
+            }
+
+            #[inline(always)]
+            fn write(&mut self, bytes: &[u8]) {
+                self.write(bytes);
             }
         }
     };
@@ -245,7 +245,7 @@ macro_rules! hasher_to_fcn {
 
     ($(#[$attr:meta])* $name:ident, $hasher:ident) => {
         $(#[$attr])*
-        #[inline]
+        #[inline(always)]
         pub const fn $name(bytes: &[u8]) -> u64 {
             let mut hasher = $hasher::default();
             hasher.write(bytes);
@@ -258,18 +258,20 @@ macro_rules! hasher_to_fcn {
 // ====================================
 // Hashing modules
 
+#[cfg(feature = "jenkins")]
 pub mod jenkins;
-pub mod pigeon;
+#[cfg(feature = "oz")]
 pub mod oz;
+#[cfg(feature = "pigeon")]
+pub mod pigeon;
 
 /// For easy access, reexport the built-in hash map's DefaultHasher,
 /// including a matching one-stop function.
 ///
 /// See std::collections::hash_map::DefaultHasher.
+#[cfg(feature = "builtin")]
 pub mod builtin {
-    use std::hash::Hasher;
-
-    pub use std::collections::hash_map::DefaultHasher;
+    pub use core::collections::hash_map::DefaultHasher;
 
     hasher_to_fcn!(
         /// Provide access to the DefaultHasher in a single function.
@@ -281,29 +283,30 @@ pub mod builtin {
 /// Poor Hashers used for testing purposes.
 ///
 /// These are not expected to be used. Really. They're not good.
+#[cfg(feature = "null")]
 pub mod null {
-    use std::hash::Hasher;
-
     /// Always returns 0.
+    #[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
     pub struct NullHasher;
 
-    impl Hasher for NullHasher {
-        #[inline]
-        fn finish(&self) -> u64 {
+    impl NullHasher {
+        #[inline(always)]
+        pub const fn default() -> NullHasher {
+            NullHasher
+        }
+
+        #[inline(always)]
+        pub const fn finish(&self) -> u64 {
             0u64
         }
 
-        #[inline]
-        fn write(&mut self, _bytes: &[u8]) {
+        #[inline(always)]
+        pub const fn write(&mut self, _bytes: &[u8]) {
             // data, you say?
         }
     }
 
-    impl Default for NullHasher {
-        fn default() -> NullHasher {
-            NullHasher
-        }
-    }
+    duplicate_const_traits!(NullHasher);
 
     hasher_to_fcn!(
         /// Provide access to NullHasher in a single call.
@@ -314,24 +317,30 @@ pub mod null {
     // --------------------------------
 
     /// Returns the last 8 bytes of the data, as a u64.
-    pub struct PassThroughHasher(u64);
+    #[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
+    pub struct PassThroughHasher(pub u64);
 
-    impl Hasher for PassThroughHasher {
-        #[inline]
-        fn finish(&self) -> u64 {
+    impl PassThroughHasher {
+        #[inline(always)]
+        pub const fn default() -> PassThroughHasher {
+            PassThroughHasher(0)
+        }
+
+        #[inline(always)]
+        pub const fn finish(&self) -> u64 {
             self.0
         }
 
-        #[inline]
-        fn write(&mut self, bytes: &[u8]) {
-            for byte in bytes.iter() {
-                self.0 = self.0.wrapping_shl(8) + (*byte as u64);
+        #[inline(always)]
+        pub const fn write(&mut self, bytes: &[u8]) {
+            let mut i = 0;
+            while i < bytes.len() {
+                self.0 = self.0.wrapping_shl(8) + (bytes[0] as u64);
             }
         }
     }
 
-    /// Provide a default PassThroughHasher initialized to 0.
-    default_for_constant!(PassThroughHasher, 0);
+    duplicate_const_traits!(PassThroughHasher);
 
     hasher_to_fcn!(
         /// Provide access to PassThroughHasher in a single call.
@@ -358,29 +367,35 @@ pub mod null {
 /// > dispersion of the FNV hashes makes them well suited for hashing nearly identical strings such
 /// > as URLs, hostnames, filenames, text, IP addresses, etc.
 /// >
-/// > The IETF has an informational draft on The FNV Non-Cryptographic Hash Algorithm 
+/// > The IETF has an informational draft on The FNV Non-Cryptographic Hash Algorithm
 ///
 /// This module provides both 32- and 64-bit versions of FNV-1a.
+#[cfg(feature = "fnv")]
 pub mod fnv {
-    use std::hash::Hasher;
-
     macro_rules! fnv1a {
         ($name:ident, $size:ty, $fnv_prime:expr, $offset_basis:expr) => {
             pub struct $name($size);
-            impl Hasher for $name {
-                #[inline]
-                fn finish(&self) -> u64 {
+            impl $name {
+                #[inline(always)]
+                pub const fn default() -> $name {
+                    $name($offset_basis)
+                }
+
+                #[inline(always)]
+                pub const fn finish(&self) -> u64 {
                     self.0 as u64
                 }
-                #[inline]
-                fn write(&mut self, bytes: &[u8]) {
-                    for byte in bytes.iter() {
-                        self.0 = self.0 ^ (*byte as $size);
+                #[inline(always)]
+                pub const fn write(&mut self, bytes: &[u8]) {
+                    let mut i = 0;
+                    while i < bytes.len() {
+                        self.0 ^= (bytes[i] as $size);
                         self.0 = self.0.wrapping_mul($fnv_prime);
+                        i += 1;
                     }
                 }
             }
-            default_for_constant!($name, $offset_basis);
+            duplicate_const_traits!($name);
         };
     }
 

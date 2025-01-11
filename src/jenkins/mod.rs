@@ -5,10 +5,6 @@
 //!
 //! This module includes a sub-module implementing SpookyHash.
 
-use std::hash::Hasher;
-use std::num::Wrapping;
-use std::{mem, ptr};
-
 pub mod spooky_hash;
 
 // ================================
@@ -28,17 +24,22 @@ pub mod spooky_hash;
 /// > implemented it to fill a set of requirements posed by Colin
 /// > Plumb. Colin ended up using an even simpler (and weaker) hash
 /// > that was sufficient for his purpose.
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct OAATHasher(pub u64);
 
-impl OOATHasher {
+impl OAATHasher {
+    #[inline(always)]
+    pub const fn default() -> Self {
+        OAATHasher(0)
+    }
+
     #[inline(always)]
     pub const fn finish(&self) -> u64 {
         let mut hash = self.0;
-        hash =  hash.wrapping_add(hash.wrapping_shl(3));
+        hash = hash.wrapping_add(hash.wrapping_shl(3));
         hash ^= hash.wrapping_shr(11);
         hash = hash.wrapping_add(hash.wrapping_shl(15));
-        hash.0
+        hash
     }
 
     #[inline(always)]
@@ -53,18 +54,7 @@ impl OOATHasher {
     }
 }
 
-impl Hasher for OAATHasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.finish()
-    }
-
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        self.write(bytes)
-    }
-}
-
+duplicate_const_traits!(OAATHasher);
 hasher_to_fcn!(
     /// Provide access to OAATHasher in a single call.
     oaat,
@@ -98,7 +88,7 @@ pub const fn rot(x: u32, k: usize) -> u32 {
 }
 
 #[inline(always)]
-const fn const_slice_window(s: &[u8], offset: usize, len: usize) -> &[u8] {
+const fn const_slice_window<T>(s: &[T], offset: usize, len: usize) -> &[T] {
     unsafe { core::slice::from_raw_parts(s.as_ptr().add(offset), len) }
 }
 
@@ -170,10 +160,9 @@ const fn const_slice_window(s: &[u8], offset: usize, len: usize) -> &[u8] {
 /// > here.
 ///
 /// See http://www.burtleburtle.net/bob/c/lookup3.c.
-
 const INIT_MAGIC: u32 = 0xdeadbeef;
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord)]
 pub struct Lookup3Hasher {
     pub pc: u32, // primary initval / primary hash
     pub pb: u32, // secondary initval / secondary hash
@@ -181,11 +170,7 @@ pub struct Lookup3Hasher {
 
 impl core::fmt::Display for Lookup3Hasher {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "Lookup3Hasher {{ pc: {:#010x}, pb: {:#010x} }}",
-            self.pc, self.pb
-        )
+        write!(f, "Lookup3Hasher {{ pc: {}, pb: {} }}", self.pc, self.pb)
     }
 }
 
@@ -324,13 +309,11 @@ impl Lookup3Hasher {
             1 => s[0] as u32,
             2 => (s[0] as u32) | ((s[1] as u32) << 8),
             3 => (s[0] as u32) | ((s[1] as u32) << 8) | ((s[2] as u32) << 16),
-            _ => (s[0] as u32)
-                | ((s[1] as u32) << 8)
-                | ((s[2] as u32) << 16)
-                | ((s[3] as u32) << 24),
+            _ => {
+                (s[0] as u32) | ((s[1] as u32) << 8) | ((s[2] as u32) << 16) | ((s[3] as u32) << 24)
+            }
         }
     }
-
 
     #[inline(always)]
     const fn finish_write(&mut self, mut a: u32, mut b: u32, mut c: u32) {
@@ -469,18 +452,7 @@ impl Lookup3Hasher {
     }
 }
 
-impl Hasher for Lookup3Hasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.finish()
-    }
-
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        self.write(bytes);
-    }
-}
-
+duplicate_const_traits!(Lookup3Hasher);
 hasher_to_fcn!(
     /// Provide access to Lookup3Hasher in a single call.
     lookup3,

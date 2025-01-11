@@ -27,7 +27,7 @@ fn split_words(s: &str) -> Vec<String> {
 /// A HashMap using the Hasher provided by BuildHasher BH.
 type Dictionary<BH> = HashMap<Vec<u8>, Vec<String>, BH>;
 /// A HashSet of strings using the Hasher provided by BuildHasher BH.
-/// 
+///
 /// Not to be confused with a swing set.
 type StringSet<BH> = HashSet<String, BH>;
 

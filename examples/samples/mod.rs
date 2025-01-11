@@ -46,4 +46,3 @@ pub fn word_samples() -> Vec<Vec<u8>> {
         .map(|l| l.as_bytes().to_vec())
         .collect();
 }
-
