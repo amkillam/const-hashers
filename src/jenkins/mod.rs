@@ -88,8 +88,18 @@ mod oaat_tests {
 }
 
 #[inline(always)]
-const fn rot64(x: u64, k: usize) -> u64 {
+pub const fn rot64(x: u64, k: usize) -> u64 {
     x.wrapping_shl(k as u32) | x.wrapping_shr(64 - k as u32)
+}
+
+#[inline(always)]
+pub const fn rot(x: u32, k: usize) -> u32 {
+    (x.wrapping_shl(k as u32)) | (x.wrapping_shr(32 - k as u32))
+}
+
+#[inline(always)]
+const fn const_slice_window(s: &[u8], offset: usize, len: usize) -> &[u8] {
+    unsafe { core::slice::from_raw_parts(s.as_ptr().add(offset), len) }
 }
 
 // ================================
