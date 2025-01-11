@@ -141,238 +141,309 @@ mod oaat_tests {
 /// > here.
 ///
 /// See http://www.burtleburtle.net/bob/c/lookup3.c.
+
+const INIT_MAGIC: u32 = 0xdeadbeef;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug, PartialOrd, Ord, Default)]
 pub struct Lookup3Hasher {
-    pc: Wrapping<u32>, // primary initval / primary hash
-    pb: Wrapping<u32>, // secondary initval / secondary hash
+    pub pc: u32, // primary initval / primary hash
+    pub pb: u32, // secondary initval / secondary hash
 }
 
-impl Default for Lookup3Hasher {
-    fn default() -> Lookup3Hasher {
-        Lookup3Hasher {
-            pc: Wrapping(0),
-            pb: Wrapping(0),
-        }
+impl core::fmt::Display for Lookup3Hasher {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Lookup3Hasher {{ pc: {:#010x}, pb: {:#010x} }}",
+            self.pc, self.pb
+        )
     }
 }
 
-#[inline]
-fn rot(x: Wrapping<u32>, k: usize) -> Wrapping<u32> {
-    x << k | x >> (32 - k)
-}
+impl Lookup3Hasher {
+    #[inline(always)]
+    pub const fn new(pc: u32, pb: u32) -> Lookup3Hasher {
+        Lookup3Hasher { pc, pb }
+    }
 
-/// > mix -- mix 3 32-bit values reversibly.
-/// >
-/// > This is reversible, so any information in (a,b,c) before mix() is
-/// > still in (a,b,c) after mix().
-/// >
-/// > If four pairs of (a,b,c) inputs are run through mix(), or through
-/// > mix() in reverse, there are at least 32 bits of the output that
-/// > are sometimes the same for one pair and different for another pair.
-/// > This was tested for:
-/// > * pairs that differed by one bit, by two bits, in any combination
-/// >   of top bits of (a,b,c), or in any combination of bottom bits of
-/// >   (a,b,c).
-/// > * "differ" is defined as +, -, ^, or ~^.  For + and -, I transformed
-/// >   the output delta to a Gray code (a^(a>>1)) so a string of 1's (as
-/// >   is commonly produced by subtraction) look like a single 1-bit
-/// >   difference.
-/// > * the base values were pseudorandom, all zero but one bit set, or
-/// >   all zero plus a counter that starts at zero.
-/// >
-/// > Some k values for my "a-=c; a^=rot(c,k); c+=b;" arrangement that
-/// > satisfy this are
-/// >     4  6  8 16 19  4
-/// >     9 15  3 18 27 15
-/// >    14  9  3  7 17  3
-/// > Well, "9 15 3 18 27 15" didn't quite get 32 bits diffing
-/// > for "differ" defined as + with a one-bit base and a two-bit delta.  I
-/// > used http://burtleburtle.net/bob/hash/avalanche.html to choose
-/// > the operations, constants, and arrangements of the variables.
-/// >
-/// > This does not achieve avalanche.  There are input bits of (a,b,c)
-/// > that fail to affect some output bits of (a,b,c), especially of a.  The
-/// > most thoroughly mixed value is c, but it doesn't really even achieve
-/// > avalanche in c.
-/// >
-/// > This allows some parallelism.  Read-after-writes are good at doubling
-/// > the number of bits affected, so the goal of mixing pulls in the opposite
-/// > direction as the goal of parallelism.  I did what I could.  Rotates
-/// > seem to cost as much as shifts on every machine I could lay my hands
-/// > on, and rotates are much kinder to the top and bottom bits, so I used
-/// > rotates.
-#[inline]
-fn mix(a: &mut Wrapping<u32>, b: &mut Wrapping<u32>, c: &mut Wrapping<u32>) {
-    *a -= *c;
-    *a ^= rot(*c, 4);
-    *c += *b;
-    *b -= *a;
-    *b ^= rot(*a, 6);
-    *a += *c;
-    *c -= *b;
-    *c ^= rot(*b, 8);
-    *b += *a;
-    *a -= *c;
-    *a ^= rot(*c, 16);
-    *c += *b;
-    *b -= *a;
-    *b ^= rot(*a, 19);
-    *a += *c;
-    *c -= *b;
-    *c ^= rot(*b, 4);
-    *b += *a;
-}
+    #[inline(always)]
+    pub const fn oneshot(bytes: &[u8], pc: u32, pb: u32) -> u64 {
+        let mut hasher = Lookup3Hasher::new(pc, pb);
+        hasher.write(bytes);
+        hasher.finish()
+    }
 
-/// > final -- final mixing of 3 32-bit values (a,b,c) into c
-/// >
-/// > Pairs of (a,b,c) values differing in only a few bits will usually
-/// > produce values of c that look totally different.  This was tested for
-/// > - pairs that differed by one bit, by two bits, in any combination
-/// >   of top bits of (a,b,c), or in any combination of bottom bits of
-/// >   (a,b,c).
-/// > - "differ" is defined as +, -, ^, or ~^.  For + and -, I transformed
-/// >   the output delta to a Gray code (a^(a>>1)) so a string of 1's (as
-/// >   is commonly produced by subtraction) look like a single 1-bit
-/// >   difference.
-/// > - the base values were pseudorandom, all zero but one bit set, or
-/// >   all zero plus a counter that starts at zero.
-/// >
-/// > These constants passed:
-/// >
-/// >  14 11 25 16 4 14 24
-/// >  12 14 25 16 4 14 24
-/// >
-/// > and these came close:
-/// >
-/// >  4  8 15 26 3 22 24
-/// >  10  8 15 26 3 22 24
-/// >  11  8 15 26 3 22 24
-#[inline]
-fn final_mix(a: &mut Wrapping<u32>, b: &mut Wrapping<u32>, c: &mut Wrapping<u32>) {
-    *c ^= *b;
-    *c -= rot(*b, 14);
-    *a ^= *c;
-    *a -= rot(*c, 11);
-    *b ^= *a;
-    *b -= rot(*a, 25);
-    *c ^= *b;
-    *c -= rot(*b, 16);
-    *a ^= *c;
-    *a -= rot(*c, 4);
-    *b ^= *a;
-    *b -= rot(*a, 14);
-    *c ^= *b;
-    *c -= rot(*b, 24);
-}
+    #[inline(always)]
+    pub const fn finish(&self) -> u64 {
+        (self.pc as u64) | ((self.pb as u64) << 32)
+    }
 
-/// Turn 0-4 bytes into an unsigned 32-bit number.
-#[inline]
-fn shift_add(s: &[u8]) -> Wrapping<u32> {
-    Wrapping(match s.len() {
-        1 => s[0] as u32,
-        2 => (s[0] as u32) + ((s[1] as u32) << 8),
-        3 => (s[0] as u32) + ((s[1] as u32) << 8) + ((s[2] as u32) << 16),
-        4 => (s[0] as u32) + ((s[1] as u32) << 8) + ((s[2] as u32) << 16) + ((s[3] as u32) << 24),
-        _ => 0 as u32,
-    })
-}
+    /// > mix -- mix 3 32-bit values reversibly.
+    /// >
+    /// > This is reversible, so any information in (a,b,c) before mix() is
+    /// > still in (a,b,c) after mix().
+    /// >
+    /// > If four pairs of (a,b,c) inputs are run through mix(), or through
+    /// > mix() in reverse, there are at least 32 bits of the output that
+    /// > are sometimes the same for one pair and different for another pair.
+    /// > This was tested for:
+    /// > * pairs that differed by one bit, by two bits, in any combination
+    /// >   of top bits of (a,b,c), or in any combination of bottom bits of
+    /// >   (a,b,c).
+    /// > * "differ" is defined as +, -, ^, or ~^.  For + and -, I transformed
+    /// >   the output delta to a Gray code (a^(a>>1)) so a string of 1's (as
+    /// >   is commonly produced by subtraction) look like a single 1-bit
+    /// >   difference.
+    /// > * the base values were pseudorandom, all zero but one bit set, or
+    /// >   all zero plus a counter that starts at zero.
+    /// >
+    /// > Some k values for my "a-=c; a^=rot(c,k); c+=b;" arrangement that
+    /// > satisfy this are
+    /// >     4  6  8 16 19  4
+    /// >     9 15  3 18 27 15
+    /// >    14  9  3  7 17  3
+    /// > Well, "9 15 3 18 27 15" didn't quite get 32 bits diffing
+    /// > for "differ" defined as + with a one-bit base and a two-bit delta.  I
+    /// > used http://burtleburtle.net/bob/hash/avalanche.html to choose
+    /// > the operations, constants, and arrangements of the variables.
+    /// >
+    /// > This does not achieve avalanche.  There are input bits of (a,b,c)
+    /// > that fail to affect some output bits of (a,b,c), especially of a.  The
+    /// > most thoroughly mixed value is c, but it doesn't really even achieve
+    /// > avalanche in c.
+    /// >
+    /// > This allows some parallelism.  Read-after-writes are good at doubling
+    /// > the number of bits affected, so the goal of mixing pulls in the opposite
+    /// > direction as the goal of parallelism.  I did what I could.  Rotates
+    /// > seem to cost as much as shifts on every machine I could lay my hands
+    /// > on, and rotates are much kinder to the top and bottom bits, so I used
+    /// > rotates.
+    #[inline(always)]
+    pub const fn mix(a: &mut u32, b: &mut u32, c: &mut u32) {
+        *a = a.wrapping_sub(*c);
+        *a ^= rot(*c, 4);
+        *c = c.wrapping_add(*b);
+        *b = b.wrapping_sub(*a);
+        *b ^= rot(*a, 6);
+        *a = a.wrapping_add(*c);
+        *c = c.wrapping_sub(*b);
+        *c ^= rot(*b, 8);
+        *b = b.wrapping_add(*a);
+        *a = a.wrapping_sub(*c);
+        *a ^= rot(*c, 16);
+        *c = c.wrapping_add(*b);
+        *b = b.wrapping_sub(*a);
+        *b ^= rot(*a, 19);
+        *a = a.wrapping_add(*c);
+        *c = c.wrapping_sub(*b);
+        *c ^= rot(*b, 4);
+        *b = b.wrapping_add(*a);
+    }
 
-#[inline]
-fn offset_to_align<T>(ptr: *const T, align: usize) -> usize {
-    align - (ptr as usize & (align - 1))
+    /// > final -- final mixing of 3 32-bit values (a,b,c) into c
+    /// >
+    /// > Pairs of (a,b,c) values differing in only a few bits will usually
+    /// > produce values of c that look totally different.  This was tested for
+    /// > - pairs that differed by one bit, by two bits, in any combination
+    /// >   of top bits of (a,b,c), or in any combination of bottom bits of
+    /// >   (a,b,c).
+    /// > - "differ" is defined as +, -, ^, or ~^.  For + and -, I transformed
+    /// >   the output delta to a Gray code (a^(a>>1)) so a string of 1's (as
+    /// >   is commonly produced by subtraction) look like a single 1-bit
+    /// >   difference.
+    /// > - the base values were pseudorandom, all zero but one bit set, or
+    /// >   all zero plus a counter that starts at zero.
+    /// >
+    /// > These constants passed:
+    /// >
+    /// >  14 11 25 16 4 14 24
+    /// >  12 14 25 16 4 14 24
+    /// >
+    /// > and these came close:
+    /// >
+    /// >  4  8 15 26 3 22 24
+    /// >  10  8 15 26 3 22 24
+    /// >  11  8 15 26 3 22 24
+    #[inline(always)]
+    pub const fn final_mix(a: &mut u32, b: &mut u32, c: &mut u32) {
+        *c ^= *b;
+        *c = c.wrapping_sub(rot(*b, 14));
+        *a ^= *c;
+        *a = a.wrapping_sub(rot(*c, 11));
+        *b ^= *a;
+        *b = b.wrapping_sub(rot(*a, 25));
+        *c ^= *b;
+        *c = c.wrapping_sub(rot(*b, 16));
+        *a ^= *c;
+        *a = a.wrapping_sub(rot(*c, 4));
+        *b ^= *a;
+        *b = b.wrapping_sub(rot(*a, 14));
+        *c ^= *b;
+        *c = c.wrapping_sub(rot(*b, 24));
+    }
+
+    /// Turn 0-4 bytes into an unsigned 32-bit number.
+    #[inline(always)]
+    pub const fn shift_add(s: &[u8]) -> u32 {
+        match s.len() {
+            0 => 0,
+            1 => s[0] as u32,
+            2 => (s[0] as u32) | ((s[1] as u32) << 8),
+            3 => (s[0] as u32) | ((s[1] as u32) << 8) | ((s[2] as u32) << 16),
+            _ => (s[0] as u32)
+                | ((s[1] as u32) << 8)
+                | ((s[2] as u32) << 16)
+                | ((s[3] as u32) << 24),
+        }
+    }
+
+
+    #[inline(always)]
+    const fn finish_write(&mut self, mut a: u32, mut b: u32, mut c: u32) {
+        Self::final_mix(&mut a, &mut b, &mut c);
+        self.pb = b;
+        self.pc = c;
+    }
+
+    pub const fn write(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
+
+        let initial = INIT_MAGIC
+            .wrapping_add(bytes.len() as u32)
+            .wrapping_add(self.pc);
+        let mut a: u32 = initial;
+        let mut b: u32 = initial;
+        let mut c: u32 = initial;
+        c = c.wrapping_add(self.pb);
+
+        let mut bytes_cursor = bytes;
+
+        #[cfg(target_endian = "little")]
+        {
+            if (core::mem::align_of_val(bytes) & 3) == 0 {
+                while bytes_cursor.len() >= 12 {
+                    // true for all chunks except the last
+                    a = a.wrapping_add(load_int_le!(bytes_cursor, 0, u32));
+                    b = b.wrapping_add(load_int_le!(bytes_cursor, 4, u32));
+                    c = c.wrapping_add(load_int_le!(bytes_cursor, 8, u32));
+                    Self::mix(&mut a, &mut b, &mut c);
+                    bytes_cursor = const_slice_window(bytes_cursor, 12, bytes_cursor.len() - 12);
+                }
+
+                if bytes_cursor.len() >= 4 {
+                    a = a.wrapping_add(load_int_le!(bytes_cursor, 0, u32));
+
+                    if bytes_cursor.len() >= 8 {
+                        b = b.wrapping_add(load_int_le!(bytes_cursor, 4, u32));
+                        c = c.wrapping_add(Self::shift_add(const_slice_window(
+                            bytes_cursor,
+                            8,
+                            bytes_cursor.len() - 8,
+                        )));
+                    } else {
+                        b = b.wrapping_add(Self::shift_add(const_slice_window(
+                            bytes_cursor,
+                            4,
+                            bytes_cursor.len() - 4,
+                        )));
+                    }
+                } else {
+                    a = a.wrapping_add(Self::shift_add(bytes_cursor));
+                }
+                return self.finish_write(a, b, c);
+            } else if (core::mem::align_of_val(bytes) & 1) == 0 {
+                while bytes_cursor.len() >= 12 {
+                    // true for all chunks except the last
+                    a = a
+                        .wrapping_add(load_int_le!(bytes_cursor, 0, u16) as u32)
+                        .wrapping_add((load_int_le!(bytes_cursor, 0, u16) as u32) << 16);
+                    b = b
+                        .wrapping_add(load_int_le!(bytes_cursor, 4, u16) as u32)
+                        .wrapping_add((load_int_le!(bytes_cursor, 6, u16) as u32) << 16);
+                    c = c
+                        .wrapping_add(load_int_le!(bytes_cursor, 8, u16) as u32)
+                        .wrapping_add((load_int_le!(bytes_cursor, 10, u16) as u32) << 16);
+                    Self::mix(&mut a, &mut b, &mut c);
+                    bytes_cursor = const_slice_window(bytes_cursor, 12, bytes_cursor.len() - 12);
+                }
+                if bytes_cursor.len() >= 4 {
+                    a = a
+                        .wrapping_add(load_int_le!(bytes_cursor, 0, u16) as u32)
+                        .wrapping_add((load_int_le!(bytes_cursor, 0, u16) as u32) << 16);
+
+                    if bytes_cursor.len() >= 8 {
+                        b = b
+                            .wrapping_add(load_int_le!(bytes_cursor, 4, u16) as u32)
+                            .wrapping_add((load_int_le!(bytes_cursor, 6, u16) as u32) << 16);
+                        c = c.wrapping_add(Self::shift_add(const_slice_window(
+                            bytes_cursor,
+                            8,
+                            bytes_cursor.len() - 8,
+                        )));
+                    } else {
+                        b = b.wrapping_add(Self::shift_add(const_slice_window(
+                            bytes_cursor,
+                            4,
+                            bytes_cursor.len() - 4,
+                        )));
+                    }
+                } else {
+                    a = a.wrapping_add(Self::shift_add(bytes_cursor));
+                }
+                return self.finish_write(a, b, c);
+            }
+        }
+
+        // For big endian machines and unaligned slices: hash bytes.
+        // "You could implement hashbig2() if you wanted but I
+        // haven't bothered here."
+        while bytes_cursor.len() >= 12 {
+            a = a.wrapping_add(Self::shift_add(const_slice_window(bytes_cursor, 0, 4)));
+            b = b.wrapping_add(Self::shift_add(const_slice_window(bytes_cursor, 4, 4)));
+            c = c.wrapping_add(Self::shift_add(const_slice_window(
+                bytes_cursor,
+                8,
+                bytes_cursor.len() - 8,
+            )));
+            Self::mix(&mut a, &mut b, &mut c);
+            bytes_cursor = const_slice_window(bytes_cursor, 12, bytes_cursor.len() - 12);
+        }
+
+        if bytes_cursor.len() >= 4 {
+            a = a.wrapping_add(Self::shift_add(const_slice_window(bytes_cursor, 0, 4)));
+
+            if bytes_cursor.len() >= 8 {
+                b = b.wrapping_add(Self::shift_add(const_slice_window(bytes_cursor, 4, 4)));
+                c = c.wrapping_add(Self::shift_add(const_slice_window(
+                    bytes_cursor,
+                    8,
+                    bytes_cursor.len() - 8,
+                )));
+            } else {
+                b = b.wrapping_add(Self::shift_add(const_slice_window(
+                    bytes_cursor,
+                    4,
+                    bytes_cursor.len() - 4,
+                )));
+            }
+        } else {
+            a = a.wrapping_add(Self::shift_add(bytes_cursor));
+        }
+        self.finish_write(a, b, c);
+    }
 }
 
 impl Hasher for Lookup3Hasher {
-    #[inline]
+    #[inline(always)]
     fn finish(&self) -> u64 {
-        (self.pc.0 as u64) + ((self.pb.0 as u64) << 32)
+        self.finish()
     }
 
-    #[inline]
+    #[inline(always)]
     fn write(&mut self, bytes: &[u8]) {
-        if bytes.len() == 0 {
-            return;
-        }
-        let initial = Wrapping(0xdeadbeefu32) + Wrapping(bytes.len() as u32) + self.pc;
-        let mut a: Wrapping<u32> = initial;
-        let mut b: Wrapping<u32> = initial;
-        let mut c: Wrapping<u32> = initial;
-        c += self.pb;
-
-        if cfg!(target_endian = "little") && offset_to_align(bytes.as_ptr(), 4) == 0 {
-            for chunk in bytes.chunks(12) {
-                if chunk.len() == 12 {
-                    // true for all chunks except the last
-                    a += Wrapping(load_int_le!(chunk, 0, u32));
-                    b += Wrapping(load_int_le!(chunk, 4, u32));
-                    c += Wrapping(load_int_le!(chunk, 8, u32));
-                    mix(&mut a, &mut b, &mut c);
-                } else if chunk.len() >= 8 {
-                    a += Wrapping(load_int_le!(chunk, 0, u32));
-                    b += Wrapping(load_int_le!(chunk, 4, u32));
-                    c += shift_add(&chunk[8..]);
-                } else if chunk.len() >= 4 {
-                    a += Wrapping(load_int_le!(chunk, 0, u32));
-                    b += shift_add(&chunk[4..]);
-                } else {
-                    a += shift_add(chunk);
-                }
-            }
-        } else if cfg!(target_endian = "little") && offset_to_align(bytes.as_ptr(), 2) == 0 {
-            for chunk in bytes.chunks(12) {
-                if chunk.len() == 12 {
-                    // true for all chunks except the last
-                    a += Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        << 16;
-                    b += Wrapping(load_int_le!(chunk, 4, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 6, u16) as u32)
-                        << 16;
-                    c += Wrapping(load_int_le!(chunk, 8, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 10, u16) as u32)
-                        << 16;
-                    mix(&mut a, &mut b, &mut c);
-                } else if chunk.len() >= 8 {
-                    a += Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        << 16;
-                    b += Wrapping(load_int_le!(chunk, 4, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 6, u16) as u32)
-                        << 16;
-                    c += shift_add(&chunk[8..]);
-                } else if chunk.len() >= 4 {
-                    a += Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        + Wrapping(load_int_le!(chunk, 0, u16) as u32)
-                        << 16;
-                    b += shift_add(&chunk[4..]);
-                } else {
-                    a += shift_add(chunk);
-                }
-            }
-        } else {
-            // For big endian machines and unaligned slices: hash bytes.
-            // "You could implement hashbig2() if you wanted but I
-            // haven't bothered here."
-            for chunk in bytes.chunks(12) {
-                if chunk.len() == 12 {
-                    a += shift_add(&chunk[..4]);
-                    b += shift_add(&chunk[4..8]);
-                    c += shift_add(&chunk[8..]);
-                    mix(&mut a, &mut b, &mut c);
-                } else if chunk.len() >= 8 {
-                    a += shift_add(&chunk[..4]);
-                    b += shift_add(&chunk[4..8]);
-                    c += shift_add(&chunk[8..]);
-                } else if chunk.len() >= 4 {
-                    a += shift_add(&chunk[..4]);
-                    b += shift_add(&chunk[4..]);
-                } else {
-                    a += shift_add(chunk);
-                }
-            }
-        }
-        final_mix(&mut a, &mut b, &mut c);
-        self.pb = b;
-        self.pc = c;
+        self.write(bytes);
     }
 }
 
