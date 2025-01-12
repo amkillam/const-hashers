@@ -84,7 +84,7 @@ pub const fn rot64(x: u64, k: usize) -> u64 {
 
 #[inline(always)]
 pub const fn rot(x: u32, k: usize) -> u32 {
-    (x.wrapping_shl(k as u32)) | (x.wrapping_shr(32 - k as u32))
+    x.wrapping_shl(k as u32) | x.wrapping_shr(32 - k as u32)
 }
 
 #[inline(always)]

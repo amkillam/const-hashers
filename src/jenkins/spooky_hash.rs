@@ -104,7 +104,7 @@ const fn mix(data: &[u64], state: &mut [u64; SC_NUM_VARS]) {
 /// > For two inputs differing in just the input bits Where
 /// > "differ" means xor or subtraction And the base value is
 /// > random, or a counting value starting at that bit The final
-/// > result will have each bit of h0, h1 flip or every input
+/// > result will have each bit of h0, h1 flip For every input
 /// > bit, with probability 50 +- .3% For every pair of input
 /// > bits, with probability 50 +- 3%
 /// >
@@ -112,7 +112,7 @@ const fn mix(data: &[u64], state: &mut [u64; SC_NUM_VARS]) {
 /// > mixed some. Two iterations was almost good enough for a
 /// > 64-bit result, but a 128-bit result is reported, so End()
 /// > does three iterations.
-#[inline]
+#[inline(always)]
 const fn end_partial(state: &mut [u64; SC_NUM_VARS]) {
     state[11] = state[11].wrapping_add(state[1]);
     state[2] ^= state[11];
@@ -152,11 +152,8 @@ const fn end_partial(state: &mut [u64; SC_NUM_VARS]) {
     state[0] = rot64(state[0], 54);
 }
 
-#[inline]
-const fn end(
-    data: &[u64; SC_NUM_VARS],
-    state: &mut [u64; SC_NUM_VARS],
-) {
+#[inline(always)]
+const fn end(data: &[u64; SC_NUM_VARS], state: &mut [u64; SC_NUM_VARS]) {
     state[0] = state[0].wrapping_add(data[0]);
     state[1] = state[1].wrapping_add(data[1]);
     state[2] = state[2].wrapping_add(data[2]);
@@ -187,7 +184,8 @@ const fn end(
 /// > diffs with diffs defined by either xor or subtraction with
 /// > a base of all zeros plus a counter, or plus another bit,
 /// > or random
-#[inline]
+
+#[inline(always)]
 const fn short_mix(h: &mut [u64; 4]) {
     h[2] = rot64(h[2], 50);
     h[2] = h[2].wrapping_add(h[3]);
@@ -237,8 +235,9 @@ const fn short_mix(h: &mut [u64; 4]) {
 /// > with probability 50 +- .3% (it is probably better than that)
 /// > For every pair of input bits,
 /// > with probability 50 +- .75% (the worst case is approximately that)
-#[inline]
-pub const fn short_end(h: &mut [u64; 4]) {
+
+#[inline(always)]
+const fn short_end(h: &mut [u64; 4]) {
     h[3] ^= h[2];
     h[2] = rot64(h[2], 15);
     h[3] = h[3].wrapping_add(h[2]);
@@ -281,17 +280,17 @@ pub const fn short_end(h: &mut [u64; 4]) {
 const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) {
     debug_assert!(length <= SC_BUF_SIZE);
     let mut h: [u64; 4] = [*hash1, *hash2, SC_CONST, SC_CONST];
-    let mut chunk = const_slice_window(message, 0, length);
+    let mut bytes_cursor = const_slice_window(message, 0, message.len());
 
-    while chunk.len() >= 4 * mem::size_of::<u64>() {
+    while bytes_cursor.len() >= 4 * mem::size_of::<u64>() {
             let mut buf = [0u64; 4 * mem::size_of::<u64>()];
-        let words: &[u64] = if (mem::align_of_val(chunk) & 3) == 0 {
-            unsafe { mem::transmute::<&[u8], &[u64]>(chunk) }
+        let words: &[u64] = if (mem::align_of_val(bytes_cursor) & 3) == 0 {
+            unsafe { mem::transmute::<&[u8], &[u64]>(const_slice_window(bytes_cursor, 0, 4*mem::size_of::<u64>())) }
         } else {
             unsafe {
                 ptr::copy_nonoverlapping(
-                    chunk.as_ptr(),
-                    &mut buf as *mut _ as *mut u8,
+                    bytes_cursor.as_ptr(),
+                    &mut buf as *mut u64 as *mut u8,
                     4 * mem::size_of::<u64>(),
                 );
             }
@@ -302,22 +301,22 @@ const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) 
         short_mix(&mut h);
         h[0] = h[0].wrapping_add(words[2]);
         h[1] = h[1].wrapping_add(words[3]);
-        chunk = const_slice_window(
-            chunk,
+        bytes_cursor = const_slice_window(
+            bytes_cursor,
             4 * mem::size_of::<u64>(),
-            chunk.len() - 4 * mem::size_of::<u64>(),
+            bytes_cursor.len() - 4 * mem::size_of::<u64>(),
         );
     }
 
-    if chunk.len() >= 2 * mem::size_of::<u64>() {
-            let mut buf = [0u64; 2 * mem::size_of::<u64>()];
+    if bytes_cursor.len() >= 2 * mem::size_of::<u64>() {
+        let mut buf = [0u64; 2 * mem::size_of::<u64>()];
         let words: &[u64] = if (mem::align_of_val(message) & 3) == 0 {
             unsafe { mem::transmute::<&[u8], &[u64]>(message) }
         } else {
             unsafe {
                 ptr::copy_nonoverlapping(
-                    chunk.as_ptr(),
-                    &mut buf as *mut _ as *mut u8,
+                    bytes_cursor.as_ptr(),
+                    &mut buf as *mut u64 as *mut u8,
                     2 * mem::size_of::<u64>(),
                 );
             }
@@ -326,54 +325,51 @@ const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) 
         h[2] = h[2].wrapping_add(words[0]);
         h[3] = h[3].wrapping_add(words[1]);
         short_mix(&mut h);
-    } else {
+    } else if ! bytes_cursor.is_empty() {
         h[3] = h[3].wrapping_add(length as u64).wrapping_shl(56);
-        if chunk.len() >= 12 {
-            if chunk.len() > 14 {
-                h[3] = h[3].wrapping_add(chunk[14] as u64).wrapping_shl(48);
+        if bytes_cursor.len() >= 12 {
+            if bytes_cursor.len() > 14 {
+                h[3] = h[3].wrapping_add(bytes_cursor[14] as u64).wrapping_shl(48);
             }
-            if chunk.len() > 13 {
-                h[3] = h[3].wrapping_add(chunk[13] as u64).wrapping_shl(40);
+            if bytes_cursor.len() > 13 {
+                h[3] = h[3].wrapping_add(bytes_cursor[13] as u64).wrapping_shl(40);
             }
-            if chunk.len() > 12 {
-                h[3] = h[3].wrapping_add(chunk[12] as u64).wrapping_shl(32);
+            if bytes_cursor.len() > 12 {
+                h[3] = h[3].wrapping_add(bytes_cursor[12] as u64).wrapping_shl(32);
             }
-            h[2] = h[2].wrapping_add(load_int_le!(chunk, 0, u64));
-            h[3] = h[3].wrapping_add(load_int_le!(chunk, 8, u32) as u64);
-        } else if chunk.len() >= 8 {
-            if chunk.len() > 10 {
-                h[3] = h[3].wrapping_add(chunk[10] as u64).wrapping_shl(16);
+            h[2] = h[2].wrapping_add(load_int_le!(bytes_cursor, 0, u64));
+            h[3] = h[3].wrapping_add(load_int_le!(bytes_cursor, 8, u32) as u64);
+        } else if bytes_cursor.len() >= 8 {
+            if bytes_cursor.len() > 10 {
+                h[3] = h[3].wrapping_add(bytes_cursor[10] as u64).wrapping_shl(16);
             }
-            if chunk.len() > 9 {
-                h[3] = h[3].wrapping_add(chunk[9] as u64).wrapping_shl(8);
+            if bytes_cursor.len() > 9 {
+                h[3] = h[3].wrapping_add(bytes_cursor[9] as u64).wrapping_shl(8);
             }
-            if chunk.len() > 8 {
-                h[3] = h[3].wrapping_add(chunk[8] as u64);
+            if bytes_cursor.len() > 8 {
+                h[3] = h[3].wrapping_add(bytes_cursor[8] as u64);
             }
-            h[2] = h[2].wrapping_add(load_int_le!(chunk, 0, u64));
-        } else if chunk.len() >= 4 {
-            if chunk.len() > 6 {
-                h[2] = h[2].wrapping_add(chunk[6] as u64).wrapping_shl(48);
+            h[2] = h[2].wrapping_add(load_int_le!(bytes_cursor, 0, u64));
+        } else if bytes_cursor.len() >= 4 {
+            if bytes_cursor.len() > 6 {
+                h[2] = h[2].wrapping_add(bytes_cursor[6] as u64).wrapping_shl(48);
             }
-            if chunk.len() > 5 {
-                h[2] = h[2].wrapping_add(chunk[5] as u64).wrapping_shl(40);
+            if bytes_cursor.len() > 5 {
+                h[2] = h[2].wrapping_add(bytes_cursor[5] as u64).wrapping_shl(40);
             }
-            if chunk.len() > 4 {
-                h[2] = h[2].wrapping_add(chunk[4] as u64).wrapping_shl(32);
+            if bytes_cursor.len() > 4 {
+                h[2] = h[2].wrapping_add(bytes_cursor[4] as u64).wrapping_shl(32);
             }
-            h[2] = h[2].wrapping_add(load_int_le!(chunk, 0, u32) as u64);
-        } else if ! chunk.is_empty() {
-            if chunk.len() > 2 {
-                h[2] = h[2].wrapping_add(chunk[2] as u64).wrapping_shl(16);
-            }
-            if chunk.len() > 1 {
-                h[2] = h[2].wrapping_add(chunk[1] as u64).wrapping_shl(8);
-            }
-            h[2] = h[2].wrapping_add(chunk[0] as u64);
+            h[2] = h[2].wrapping_add(load_int_le!(bytes_cursor, 0, u32) as u64);
         } else {
-            h[2] = h[2].wrapping_add(SC_CONST);
-            h[3] = h[3].wrapping_add(SC_CONST);
-        }
+            if bytes_cursor.len() > 2 {
+                h[2] = h[2].wrapping_add(bytes_cursor[2] as u64).wrapping_shl(16);
+            }
+            if bytes_cursor.len() > 1 {
+                h[2] = h[2].wrapping_add(bytes_cursor[1] as u64).wrapping_shl(8);
+            }
+            h[2] = h[2].wrapping_add(bytes_cursor[0] as u64);
+        } 
     }
 
     short_end(&mut h);
@@ -472,7 +468,7 @@ impl SpookyHasher {
             unsafe {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
-                    (self.m_data.as_mut_ptr()).add(self.m_remainder ),
+                    self.m_data.as_mut_ptr().add(self.m_remainder ),
                     bytes.len(),
                 );
             }
@@ -489,7 +485,7 @@ impl SpookyHasher {
             unsafe {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
-                    (self.m_data.as_mut_ptr()).add(self.m_remainder ),
+                    self.m_data.as_mut_ptr().add(self.m_remainder ),
                     processed,
                 );
             }
@@ -499,16 +495,16 @@ impl SpookyHasher {
             self.m_remainder = 0;
         }
         // process the rest of the bytes
-        let mut chunk = const_slice_window(bytes, processed, bytes.len() - processed);
-        while chunk.len() >= SC_BLOCK_SIZE {
+        let mut bytes_cursor = const_slice_window(bytes, processed, bytes.len() - processed);
+        while bytes_cursor.len() >= SC_BLOCK_SIZE {
                 // handle whole blocks of SC_BLOCK_SIZE bytes
-                if (mem::align_of_val(chunk) & 7) == 0 {
-                    let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(chunk) };
+                if (mem::align_of_val(bytes_cursor) & 7) == 0 {
+                    let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(bytes_cursor) };
                     mix(data, &mut self.m_state);
                 } else {
                     unsafe {
                         ptr::copy_nonoverlapping(
-                            chunk.as_ptr(),
+                            bytes_cursor.as_ptr(),
                             self.m_data.as_mut_ptr(),
                             SC_BLOCK_SIZE,
                         );
@@ -516,18 +512,18 @@ impl SpookyHasher {
                     let  data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(&self.m_data) };
                     mix(data, &mut self.m_state);
             }
-                    chunk = const_slice_window(chunk, SC_BLOCK_SIZE, chunk.len() - SC_BLOCK_SIZE);
+                    bytes_cursor = const_slice_window(bytes_cursor, SC_BLOCK_SIZE, bytes_cursor.len() - SC_BLOCK_SIZE);
         }
-        if ! chunk.is_empty() {
+        if ! bytes_cursor.is_empty() {
                 // stuff away the last few bytes
                 unsafe {
                     ptr::copy_nonoverlapping(
-                        chunk.as_ptr(),
+                        bytes_cursor.as_ptr(),
                         self.m_data.as_mut_ptr(),
-                        chunk.len(),
+                        bytes_cursor.len(),
                     );
                 }
-                self.m_remainder = chunk.len();
+                self.m_remainder = bytes_cursor.len();
             
     }
     }

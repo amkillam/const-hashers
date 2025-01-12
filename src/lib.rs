@@ -79,7 +79,7 @@
 //! use std::collections::HashMap;
 //! use std::hash::BuildHasherDefault;
 //!
-//! use hashers::jenkins::Lookup3Hasher;
+//! use const_hashers::jenkins::Lookup3Hasher;
 //!
 //! // BuildHasherDefault also implements Default---it's not really interesting.
 //! let mut map =
@@ -101,7 +101,7 @@
 //! use std::collections::HashMap;
 //! use std::hash::BuildHasherDefault;
 //!
-//! use hashers::fnv::FNV1aHasher64;
+//! use const_hashers::fnv::FNV1aHasher64;
 //!
 //! // This could be more complicated.
 //! fn gimmie_a_map() -> HashMap<i32,i32,BuildHasherDefault<FNV1aHasher64>> {
