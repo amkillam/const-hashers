@@ -205,7 +205,7 @@ impl LoseLoseHasher {
         let mut i = 0;
         while i < bytes.len() {
             self.0 = self.0.wrapping_add(bytes[i] as u64);
-            i +=1;
+            i += 1;
         }
     }
 }

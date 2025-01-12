@@ -3,8 +3,8 @@
 //! Quoted comments are from http://burtleburtle.net/bob/c/SpookyV2.h or
 //! http://burtleburtle.net/bob/c/SpookyV2.cpp
 
-use core::{ mem, ptr};
-use super::{rot64, const_slice_window};
+use super::{const_slice_window, rot64};
+use core::{mem, ptr};
 
 /// number of uint64's in internal state
 const SC_NUM_VARS: usize = 12;
@@ -283,9 +283,15 @@ const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) 
     let mut bytes_cursor = const_slice_window(message, 0, message.len());
 
     while bytes_cursor.len() >= 4 * mem::size_of::<u64>() {
-            let mut buf = [0u64; 4 * mem::size_of::<u64>()];
+        let mut buf = [0u64; 4 * mem::size_of::<u64>()];
         let words: &[u64] = if (mem::align_of_val(bytes_cursor) & 3) == 0 {
-            unsafe { mem::transmute::<&[u8], &[u64]>(const_slice_window(bytes_cursor, 0, 4*mem::size_of::<u64>())) }
+            unsafe {
+                mem::transmute::<&[u8], &[u64]>(const_slice_window(
+                    bytes_cursor,
+                    0,
+                    4 * mem::size_of::<u64>(),
+                ))
+            }
         } else {
             unsafe {
                 ptr::copy_nonoverlapping(
@@ -325,7 +331,7 @@ const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) 
         h[2] = h[2].wrapping_add(words[0]);
         h[3] = h[3].wrapping_add(words[1]);
         short_mix(&mut h);
-    } else if ! bytes_cursor.is_empty() {
+    } else if !bytes_cursor.is_empty() {
         h[3] = h[3].wrapping_add(length as u64).wrapping_shl(56);
         if bytes_cursor.len() >= 12 {
             if bytes_cursor.len() > 14 {
@@ -369,7 +375,7 @@ const fn short(message: &[u8], length: usize, hash1: &mut u64, hash2: &mut u64) 
                 h[2] = h[2].wrapping_add(bytes_cursor[1] as u64).wrapping_shl(8);
             }
             h[2] = h[2].wrapping_add(bytes_cursor[0] as u64);
-        } 
+        }
     }
 
     short_end(&mut h);
@@ -468,7 +474,7 @@ impl SpookyHasher {
             unsafe {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
-                    self.m_data.as_mut_ptr().add(self.m_remainder ),
+                    self.m_data.as_mut_ptr().add(self.m_remainder),
                     bytes.len(),
                 );
             }
@@ -485,47 +491,53 @@ impl SpookyHasher {
             unsafe {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
-                    self.m_data.as_mut_ptr().add(self.m_remainder ),
+                    self.m_data.as_mut_ptr().add(self.m_remainder),
                     processed,
                 );
             }
             let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(&self.m_data) };
             mix(data, &mut self.m_state);
-            mix(const_slice_window(data, SC_NUM_VARS, data.len() - SC_NUM_VARS), &mut self.m_state);
+            mix(
+                const_slice_window(data, SC_NUM_VARS, data.len() - SC_NUM_VARS),
+                &mut self.m_state,
+            );
             self.m_remainder = 0;
         }
         // process the rest of the bytes
         let mut bytes_cursor = const_slice_window(bytes, processed, bytes.len() - processed);
         while bytes_cursor.len() >= SC_BLOCK_SIZE {
-                // handle whole blocks of SC_BLOCK_SIZE bytes
-                if (mem::align_of_val(bytes_cursor) & 7) == 0 {
-                    let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(bytes_cursor) };
-                    mix(data, &mut self.m_state);
-                } else {
-                    unsafe {
-                        ptr::copy_nonoverlapping(
-                            bytes_cursor.as_ptr(),
-                            self.m_data.as_mut_ptr(),
-                            SC_BLOCK_SIZE,
-                        );
-                    }
-                    let  data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(&self.m_data) };
-                    mix(data, &mut self.m_state);
-            }
-                    bytes_cursor = const_slice_window(bytes_cursor, SC_BLOCK_SIZE, bytes_cursor.len() - SC_BLOCK_SIZE);
-        }
-        if ! bytes_cursor.is_empty() {
-                // stuff away the last few bytes
+            // handle whole blocks of SC_BLOCK_SIZE bytes
+            if (mem::align_of_val(bytes_cursor) & 7) == 0 {
+                let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(bytes_cursor) };
+                mix(data, &mut self.m_state);
+            } else {
                 unsafe {
                     ptr::copy_nonoverlapping(
                         bytes_cursor.as_ptr(),
                         self.m_data.as_mut_ptr(),
-                        bytes_cursor.len(),
+                        SC_BLOCK_SIZE,
                     );
                 }
-                self.m_remainder = bytes_cursor.len();
-            
-    }
+                let data: &[u64] = unsafe { mem::transmute::<&[u8], &[u64]>(&self.m_data) };
+                mix(data, &mut self.m_state);
+            }
+            bytes_cursor = const_slice_window(
+                bytes_cursor,
+                SC_BLOCK_SIZE,
+                bytes_cursor.len() - SC_BLOCK_SIZE,
+            );
+        }
+        if !bytes_cursor.is_empty() {
+            // stuff away the last few bytes
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    bytes_cursor.as_ptr(),
+                    self.m_data.as_mut_ptr(),
+                    bytes_cursor.len(),
+                );
+            }
+            self.m_remainder = bytes_cursor.len();
+        }
     }
 }
 

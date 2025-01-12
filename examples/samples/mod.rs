@@ -6,7 +6,11 @@ pub fn uniform() -> Uniform<u8> {
 }
 
 // Generate n samples of size s bytes from distribution dst.
-pub fn random_samples<D: Distribution<u8> + Copy>(dist: &mut D, n: usize, s: usize) -> Vec<Vec<u8>> {
+pub fn random_samples<D: Distribution<u8> + Copy>(
+    dist: &mut D,
+    n: usize,
+    s: usize,
+) -> Vec<Vec<u8>> {
     (0..n)
         .map(move |_| dist.sample_iter(&mut rand::thread_rng()).take(s).collect())
         .collect()
@@ -35,8 +39,8 @@ pub fn generated_samples(n: usize, s: usize) -> Vec<Vec<u8>> {
 // Read samples from dictionary
 pub fn word_samples() -> Vec<Vec<u8>> {
     use std::fs::File;
-    use std::io::prelude::*;
     use std::io::BufReader;
+    use std::io::prelude::*;
 
     let file = File::open("./data/words.txt").expect("cannot open words.txt");
     return BufReader::new(file)

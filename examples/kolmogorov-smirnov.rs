@@ -109,7 +109,10 @@ fn run_sample(name: &str, samples: &[Vec<u8>]) {
     print_ks(
         name,
         "spooky   ",
-        ks(&do_hashes(const_hashers::jenkins::spooky_hash::spooky, samples)),
+        ks(&do_hashes(
+            const_hashers::jenkins::spooky_hash::spooky,
+            samples,
+        )),
     );
 }
 

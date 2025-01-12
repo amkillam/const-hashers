@@ -44,9 +44,15 @@ fn do_print(name: &str, chi2: f64) {
 
 fn do_hashes(samples: &[Vec<u8>]) {
     #[cfg(feature = "pigeon")]
-    do_print("bricolage", chi2(&samples, const_hashers::pigeon::bricolage, 7));
+    do_print(
+        "bricolage",
+        chi2(&samples, const_hashers::pigeon::bricolage, 7),
+    );
     #[cfg(feature = "builtin")]
-    do_print("default", chi2(&samples, const_hashers::builtin::default, 7));
+    do_print(
+        "default",
+        chi2(&samples, const_hashers::builtin::default, 7),
+    );
     #[cfg(feature = "oz")]
     do_print("djb2", chi2(&samples, const_hashers::oz::djb2, 7));
     #[cfg(feature = "fnv")]
@@ -54,7 +60,10 @@ fn do_hashes(samples: &[Vec<u8>]) {
     #[cfg(feature = "fnv")]
     do_print("fnv1a 64", chi2(&samples, const_hashers::fnv::fnv1a64, 7));
     #[cfg(feature = "jenkins")]
-    do_print("lookup3", chi2(&samples, const_hashers::jenkins::lookup3, 7));
+    do_print(
+        "lookup3",
+        chi2(&samples, const_hashers::jenkins::lookup3, 7),
+    );
     #[cfg(feature = "oz")]
     do_print("loselose", chi2(&samples, const_hashers::oz::loselose, 7));
     #[cfg(feature = "null")]
@@ -66,7 +75,10 @@ fn do_hashes(samples: &[Vec<u8>]) {
     #[cfg(feature = "oz")]
     do_print("sdbm", chi2(&samples, const_hashers::oz::sdbm, 7));
     #[cfg(feature = "jenkins")]
-    do_print("spooky", chi2(&samples, const_hashers::jenkins::spooky_hash::spooky, 7));
+    do_print(
+        "spooky",
+        chi2(&samples, const_hashers::jenkins::spooky_hash::spooky, 7),
+    );
 }
 
 fn main() {

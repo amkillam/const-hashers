@@ -3,8 +3,8 @@
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
-use std::time;
 use std::io::{BufRead, BufReader};
+use std::time;
 
 pub mod combinations;
 
@@ -98,24 +98,23 @@ fn time<H: Default + Hasher>(title: &str, baseline: f64) -> f64 {
 
 fn main() {
     let baseline = time::<std::collections::hash_map::DefaultHasher>("default", 0.0);
-    
+
     #[cfg(feature = "oz")]
     {
-       time::<const_hashers::oz::DJB2Hasher>("djb2", baseline);
-       time::<const_hashers::oz::SDBMHasher>("sdbm", baseline);
+        time::<const_hashers::oz::DJB2Hasher>("djb2", baseline);
+        time::<const_hashers::oz::SDBMHasher>("sdbm", baseline);
     }
     #[cfg(feature = "jenkins")]
     {
-       time::<const_hashers::jenkins::OAATHasher>("oaat", baseline);
-       time::<const_hashers::jenkins::Lookup3Hasher>("lookup3", baseline);
-       time::<const_hashers::jenkins::spooky_hash::SpookyHasher>("spooky", baseline);
-
+        time::<const_hashers::jenkins::OAATHasher>("oaat", baseline);
+        time::<const_hashers::jenkins::Lookup3Hasher>("lookup3", baseline);
+        time::<const_hashers::jenkins::spooky_hash::SpookyHasher>("spooky", baseline);
     }
     #[cfg(feature = "fnv")]
     {
-       time::<const_hashers::fnv::FNV1aHasher32>("fnv-1a 32", baseline);
-       time::<const_hashers::fnv::FNV1aHasher64>("fnv-1a 64", baseline);
+        time::<const_hashers::fnv::FNV1aHasher32>("fnv-1a 32", baseline);
+        time::<const_hashers::fnv::FNV1aHasher64>("fnv-1a 64", baseline);
     }
     #[cfg(feature = "pigeon")]
-       time::<const_hashers::pigeon::Bricolage>("bricolage", baseline);
+    time::<const_hashers::pigeon::Bricolage>("bricolage", baseline);
 }
